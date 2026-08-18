@@ -33,7 +33,7 @@ namespace CoreCms.Net.Configuration
         /// 封装要操作的字符
         /// AppSettingsHelper.GetContent(new string[] { "JwtConfig", "SecretKey" });
         /// </summary>
-        /// <param name="sections">节点</param>
+        /// <param name="sections">节点配置</param>
         /// <returns></returns>
         public static string GetContent(params string[] sections)
         {
@@ -49,6 +49,7 @@ namespace CoreCms.Net.Configuration
 
             return "";
         }
+
 
 
 
@@ -81,39 +82,20 @@ namespace CoreCms.Net.Configuration
 
                 var adapterDescription = adapter.Description;
                 var NetworkInterfaceType = adapter.NetworkInterfaceType;
-                //if (adapterName == "本地连接" &&
-                //    adapterDescription == "Realtek PCIe GBE Family Controller" &&
-                //    NetworkInterfaceType == NetworkInterfaceType.Ethernet)
-                //{
-                //    PhysicalAddress address = adapter.GetPhysicalAddress();
-                //    byte[] bytes = address.GetAddressBytes();
-                //    for (int i = 0; i < bytes.Length; i++)
-                //    {
-                //        MACIp += bytes[i].ToString("X2"); //以十六进制格式化
-                //        if (i != bytes.Length - 1)
-                //        {
-                //            MACIp += "-";
-                //        }
-                //    }
-                //}
-
-                // 特别注释下：由于Framework和Core获取的网卡数据顺序不一致，导致MAC地址与原来的不一样
-                // 修改新方案：获取有Dns数据的网卡
-                var PIPProperties = adapter.GetIPProperties();
-                if (PIPProperties.DnsAddresses != null && PIPProperties.DnsAddresses.Count > 0)
+                if (adapterName == "本地连接" || needToken)
                 {
-                    //修改为获取第一个网卡地址
                     PhysicalAddress address = adapter.GetPhysicalAddress();
                     byte[] bytes = address.GetAddressBytes();
+
                     for (int i = 0; i < bytes.Length; i++)
                     {
-                        MACIp += bytes[i].ToString("X2"); //以十六进制格式化
+                        MACIp += bytes[i].ToString("X2");
+
                         if (i != bytes.Length - 1)
                         {
                             MACIp += "-";
                         }
                     }
-                    break;
                 }
             }
 
@@ -121,29 +103,47 @@ namespace CoreCms.Net.Configuration
         }
 
         /// <summary>
-        /// 根据mac获取随机key
+        /// 获取电脑计算机名
+        /// </summary>
+        /// <returns></returns>
+        public static string GetHostName()
+        {
+            //本地计算机网络连接信息
+            IPGlobalProperties computerProperties = IPGlobalProperties.GetIPGlobalProperties();
+
+            //获取本机电脑名
+            var hostName = computerProperties.HostName;
+
+            return !string.IsNullOrEmpty(hostName) ? hostName : "CoreShop.Professional";
+
+        }
+
+
+
+
+        /// <summary>
+        /// 转MD5
         /// </summary>
         /// <param name="str"></param>
         /// <returns></returns>
         public static string GetMachineRandomKey(string str)
         {
-            //var s = AppSettingsHelper.GetContent("JwtConfig", "SecretKey");
-            var s = str + GetMACIp(true);
-            using (var md5 = MD5.Create())
+            MD5 md5 = MD5.Create();
+            // 将字符串转换成字节数组
+            byte[] byteOld = Encoding.UTF8.GetBytes(str);
+            // 调用加密方法
+            byte[] byteNew = md5.ComputeHash(byteOld);
+            // 将加密结果转换为字符串
+            StringBuilder sb = new StringBuilder();
+            foreach (byte b in byteNew)
             {
-                var result = md5.ComputeHash(Encoding.UTF8.GetBytes(s));
-                var strResult = BitConverter.ToString(result);
-                return strResult.Replace("-", "");
+                // 将字节转换成16进制表示的字符串，
+                sb.Append(b.ToString("x2"));
             }
+            // 返回加密的字符串
+            return sb.ToString();
         }
 
-        /// <summary>
-        /// 获取主机名
-        /// </summary>
-        /// <returns></returns>
-        public static string GetHostName()
-        {
-            return System.Net.Dns.GetHostName();
-        }
+
     }
 }
