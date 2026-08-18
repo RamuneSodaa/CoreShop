@@ -1,192 +1,112 @@
 <template>
-    <view>
-        <u-toast ref="uToast" /><u-no-network></u-no-network>
-        <u-navbar title="支付"></u-navbar>
-        <view class="coreshop-bg-white coreshop-solid-bottom u-padding-30">
-            <u-icon name="error-circle" size="28" class="coreshop-text-orange" label="支付信息"></u-icon>
-        </view>
-        <!--商品信息-->
-        <view class="coreshop-list menu">
-            <view class="coreshop-list-item">
-                <view class="content">
-                    <text class="coreshop-text-grey">订单类型</text>
+    <view class="reservation-page">
+        <u-toast ref="uToast" />
+        <u-no-network></u-no-network>
+        <u-navbar title="预订成功"></u-navbar>
+
+        <view v-if="type === 1" class="reservation-wrap">
+            <view class="success-card">
+                <view class="success-icon">
+                    <u-icon name="checkmark-circle-fill" size="92" color="#22a06b"></u-icon>
                 </view>
-                <view class="action">
-                    <text class="u-font-sm coreshop-text-gray" v-if="type == 1">商品订单</text>
-                    <text class="u-font-sm coreshop-text-gray" v-if="type == 2" @click="toRecharge()">充值订单</text>
-                    <text class="u-font-sm coreshop-text-gray" v-if="type == 3">表单订单</text>
-                    <text class="u-font-sm coreshop-text-gray" v-if="type == 4">付款码</text>
-                    <text class="u-font-sm coreshop-text-gray" v-if="type == 5">服务订单</text>
+                <view class="success-title">预订已提交</view>
+                <view class="success-desc">鱼货已按订单占用库存，请按微信群原来的方式转账。</view>
+            </view>
+
+            <view class="info-card">
+                <view class="info-row">
+                    <text class="label">订单编号</text>
+                    <text class="value">{{ displayOrderId }}</text>
+                </view>
+                <view class="info-row" v-if="orderInfo.money !== undefined && orderInfo.money !== null && orderInfo.money !== ''">
+                    <text class="label">预计金额</text>
+                    <text class="value price">¥{{ orderInfo.money }}</text>
+                </view>
+                <view class="info-row">
+                    <text class="label">付款方式</text>
+                    <text class="value">微信转账 / 线下确认</text>
+                </view>
+                <view class="info-row no-border">
+                    <text class="label">订单状态</text>
+                    <text class="value status">已预订</text>
                 </view>
             </view>
-            <template v-if="type == 1">
-                <view class="coreshop-list-item">
-                    <view class="content">
-                        <text class="coreshop-text-grey">订单编号</text>
-                    </view>
-                    <view class="action">
-                        <text class="coreshop-text-grey u-font-sm" v-for="(item, index) in orderInfo.rel" :key="index" @click="goOrderDetail(item.sourceId)">{{ item.sourceId || '' }}</text>
-                    </view>
-                </view>
-                <view class="coreshop-list-item">
-                    <view class="content">
-                        <text class="coreshop-text-grey">订单金额</text>
-                    </view>
-                    <view class="action">
-                        <text class="coreshop-text-price coreshop-text-red u-font-lg">{{ orderInfo.money || '' }}</text>
-                    </view>
-                </view>
-            </template>
-            <template v-else-if="type == 2">
-                <view class="coreshop-list-item">
-                    <view class="content">
-                        <text class="coreshop-text-grey">充值金额</text>
-                    </view>
-                    <view class="action">
-                        <text class="coreshop-text-price coreshop-text-red u-font-lg">{{ recharge || '' }}</text>
-                    </view>
-                </view>
-            </template>
-            <template v-else-if="type == 5">
-                <view class="coreshop-list-item">
-                    <view class="content">
-                        <text class="coreshop-text-grey">购买服务</text>
-                    </view>
-                    <view class="action">
-                        <text class="u-font-sm coreshop-text-gray">{{ serviceInfo.title || '' }}</text>
-                    </view>
-                </view>
-                <view class="coreshop-list-item">
-                    <view class="content">
-                        <text class="coreshop-text-grey">服务金额</text>
-                    </view>
-                    <view class="action">
-                        <text class="coreshop-text-price coreshop-text-red u-font-lg">{{ serviceInfo.money || '' }}</text>
-                    </view>
-                </view>
-            </template>
-            <template v-else>
-                <view class="coreshop-list-item">
-                    <view class="content">
-                        <text class="coreshop-text-grey">支付金额</text>
-                    </view>
-                    <view class="action">
-                        <text class="coreshop-text-price coreshop-text-red u-font-lg">{{ recharge || '' }}</text>
-                    </view>
-                </view>
-            </template>
 
+            <view class="notice-card">
+                <view class="notice-title">温馨提示</view>
+                <view class="notice-text">1. 本小程序暂不收款，不会唤起微信支付。</view>
+                <view class="notice-text">2. 下单后库存已经为您保留，请按群内原有方式转账。</view>
+                <view class="notice-text">3. 海鲜实际重量如有少量出入，以最终称重和负责人确认为准。</view>
+            </view>
+
+            <view class="action-box" v-if="sourceOrderId">
+                <u-button type="success" @click="viewOrder">查看订单详情</u-button>
+            </view>
         </view>
 
-        <view class="coreshop-bg-white coreshop-solid-bottom u-padding-30  u-margin-top-30">
-            <u-icon name="checkmark-circle" size="28" class="coreshop-text-orange" label="请点击选择以下支付方式"></u-icon>
+        <view v-else class="disabled-card">
+            <u-icon name="info-circle" size="70" color="#909399"></u-icon>
+            <view class="disabled-title">在线支付已关闭</view>
+            <view class="disabled-text">当前版本仅用于鱼货预订、库存和订单记录，不提供充值或其他在线支付功能。</view>
         </view>
 
-        <!--支付方式-->
-        <view class="content">
-            <payments-by-wx :orderId="orderId" :recharge="recharge" :type="type" :uid="userInfo.id"></payments-by-wx>
-        </view>
-
-        <!--提示信息-->
-        <view class="coreshop-text-gray u-padding-20 u-font-sm">
-            注：如果您在支付中选择的支付方式不适合或异常，请再次选择其他支付方式。
-        </view>
-        <!-- 登录提示 -->
         <coreshop-login-modal></coreshop-login-modal>
     </view>
 </template>
-<script>
-    import paymentsByWx from '@/pages/payment/components/coreshop-paymentsByWx.vue';
 
+<script>
     import { orders } from '@/common/mixins/mixinsHelper.js';
+
     export default {
         mixins: [orders],
         data() {
             return {
-                orderId: 0,
-                recharge: 0,
-                serviceId: 0, //服务编号
-                type: 1, // 订单类型 1商品订单 2充值订单 5服务订单
-                orderInfo: {}, // 订单详情
-                userInfo: {}, // 用户信息
-                serviceInfo: {}, // 服务信息
-                formId: 0,
+                orderId: '',
+                type: 1,
+                orderInfo: {}
             };
         },
-        components: {
-            paymentsByWx
+        computed: {
+            sourceOrderId() {
+                if (this.orderInfo && this.orderInfo.rel && this.orderInfo.rel.length > 0) {
+                    return this.orderInfo.rel[0].sourceId || '';
+                }
+                return this.orderId || '';
+            },
+            displayOrderId() {
+                return this.sourceOrderId || '已生成';
+            }
         },
         onLoad(options) {
-            console.log(options);
-            this.orderId = options.orderId;
-            this.serviceId = Number(options.serviceId);
-            this.recharge = Number(options.recharge);
-            this.type = Number(options.type);
-            this.formId = Number(options.formId);
-            //this.getOrderInfo ()
-            if (this.orderId && this.type == 1) {
-                // 商品订单
+            this.orderId = options.orderId || '';
+            this.type = Number(options.type || 1);
+
+            if (this.type === 1 && this.orderId) {
                 this.getOrderInfo();
-            } else if (this.recharge && this.type == 2) {
-                // 充值订单 获取用户id
-                this.getUserInfo();
-            } else if (this.formId && (this.type == 3 || this.type == 4)) {
-                // 表单订单 id传到订单上
-                this.orderId = '' + this.formId;
-            } else if (this.type == 5) {
-                this.getServiceDetail();
-            }
-            else {
-                this.$refs.uToast.show({ title: '订单支付参数错误', type: 'error', back: true });
             }
         },
         methods: {
-            // 获取订单详情
             getOrderInfo() {
-                let data = {
+                const data = {
                     ids: this.orderId,
-                    paymentType: this.type
+                    paymentType: 1
                 };
+
                 this.$u.api.paymentsCheckpay(data).then(res => {
                     if (res.status) {
-                        this.orderInfo = res.data;
-                        /* console.log(this.orderInfo)
-                            if(this.orderInfo.pay_status == 2){
-                                this.$u.route({ type: 'redirectTo', url: '/pages/payment/result/result?orderId=' + this.orderInfo.orderId });
-                            } */
+                        this.orderInfo = res.data || {};
                     }
+                }).catch(() => {
+                    // 预订订单已经创建成功；金额信息读取失败时仍保留成功页，避免误导用户重复下单。
                 });
             },
-            //获取服务详情
-            getServiceDetail() {
-                let data = {
-                    id: this.serviceId
-                };
-                this.$u.api.getServiceDetail(data).then(res => {
-                    if (res.status) {
-                        this.serviceInfo = res.data;
-                    } else {
-                        this.$u.toast(res.msg);
-                    }
-                });
-            },
-            // 获取用户信息
-            getUserInfo() {
-                this.$u.api.userInfo().then(res => {
-                    if (res.status) {
-                        this.userInfo = res.data;
-                    } else {
-                        this.$u.toast(res.msg);
-                    }
-                });
-            },
-            // 跳转我的余额页面
-            toRecharge() {
-                this.$u.route('/pages/member/balance/index/index');
+            viewOrder() {
+                this.goOrderDetail(this.sourceOrderId);
             }
         }
     };
 </script>
+
 <style lang="scss">
     @import "pay.scss";
 </style>
