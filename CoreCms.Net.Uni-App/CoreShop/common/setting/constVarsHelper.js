@@ -3,10 +3,11 @@
  *  @version 1.0.0
  */
 
-//接口请求地址，如果需要不部署接口端的情况下测试uni-app，可以直接替换为官方测试接口：https://api.demo.coreshop.cn
-export const apiBaseUrl = 'https://api.demo.coreshop.cn';
-//项目静态资源请求地址，如果使用官方的静态文件地址可以直接替换为：https://files.cdn.coreshop.cn
-export const apiFilesUrl = 'https://files.cdn.coreshop.cn';
+// 本地卖鱼接龙 MVP：接口指向本机 CoreShop WebApi。
+// 正式部署时再替换为生产 API 域名。
+export const apiBaseUrl = 'http://127.0.0.1:2015';
+// 本地上传图片由 Admin 静态目录提供。
+export const apiFilesUrl = 'http://127.0.0.1:1987';
 
 // #ifdef H5
 export const baseUrl = process.env.NODE_ENV === 'development' ? window.location.origin + '/' : apiBaseUrl
