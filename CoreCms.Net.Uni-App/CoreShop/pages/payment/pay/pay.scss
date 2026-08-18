@@ -1,2 +1,124 @@
-﻿.coreshop-list.menu-avatar > .coreshop-list-item .content { position: absolute; left: 106rpx; width: calc(100% - 96rpx - 60rpx - 120rpx - 20rpx); line-height: 1.6em; }
-.coreshop-list.menu-avatar > .coreshop-list-item .action { width: auto; text-align: center; margin-right: 30rpx; }
+.reservation-page {
+    min-height: 100vh;
+    background: #f6f7f8;
+}
+
+.reservation-wrap {
+    padding: 24rpx;
+}
+
+.success-card,
+.info-card,
+.notice-card,
+.disabled-card {
+    background: #ffffff;
+    border-radius: 20rpx;
+    box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.04);
+}
+
+.success-card {
+    padding: 48rpx 32rpx 40rpx;
+    text-align: center;
+}
+
+.success-icon {
+    margin-bottom: 20rpx;
+}
+
+.success-title {
+    font-size: 38rpx;
+    font-weight: 700;
+    color: #202124;
+}
+
+.success-desc {
+    margin-top: 16rpx;
+    font-size: 28rpx;
+    line-height: 1.7;
+    color: #6b7280;
+}
+
+.info-card {
+    margin-top: 24rpx;
+    padding: 0 30rpx;
+}
+
+.info-row {
+    min-height: 96rpx;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1rpx solid #eeeeee;
+}
+
+.info-row.no-border {
+    border-bottom: 0;
+}
+
+.label {
+    flex-shrink: 0;
+    font-size: 28rpx;
+    color: #6b7280;
+}
+
+.value {
+    margin-left: 24rpx;
+    text-align: right;
+    font-size: 28rpx;
+    color: #202124;
+    word-break: break-all;
+}
+
+.value.price {
+    font-size: 34rpx;
+    font-weight: 700;
+    color: #d94841;
+}
+
+.value.status {
+    font-weight: 600;
+    color: #22a06b;
+}
+
+.notice-card {
+    margin-top: 24rpx;
+    padding: 30rpx;
+}
+
+.notice-title {
+    margin-bottom: 14rpx;
+    font-size: 30rpx;
+    font-weight: 700;
+    color: #202124;
+}
+
+.notice-text {
+    margin-top: 8rpx;
+    font-size: 26rpx;
+    line-height: 1.7;
+    color: #6b7280;
+}
+
+.action-box {
+    margin: 36rpx 0 20rpx;
+}
+
+.disabled-card {
+    margin: 40rpx 24rpx;
+    padding: 80rpx 40rpx;
+    text-align: center;
+}
+
+.disabled-title {
+    margin-top: 24rpx;
+    font-size: 34rpx;
+    font-weight: 700;
+    color: #303133;
+}
+
+.disabled-text {
+    margin-top: 16rpx;
+    font-size: 27rpx;
+    line-height: 1.7;
+    color: #909399;
+}
