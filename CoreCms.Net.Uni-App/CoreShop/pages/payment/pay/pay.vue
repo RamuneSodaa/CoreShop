@@ -7,7 +7,7 @@
         <view v-if="type === 1" class="reservation-wrap">
             <view class="success-card">
                 <view class="success-icon">
-                    <u-icon name="checkmark-circle-fill" size="92" color="#22a06b"></u-icon>
+                    <u-icon name="checkmark-circle" size="92" color="#22a06b"></u-icon>
                 </view>
                 <view class="success-title">预订已提交</view>
                 <view class="success-desc">鱼货已按订单占用库存，请按微信群原来的方式转账。</view>
