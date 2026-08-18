@@ -1,268 +1,609 @@
-﻿<template>
-    <!-- 页面主体 -->
-    <view>
-        <!--提示框组件-->
+<template>
+    <view class="seafood-page">
         <u-toast ref="uToast" />
-        <!--无网络组件-->
         <u-no-network></u-no-network>
-        <!--头部组件-->
-        <u-navbar :is-back="false" :title="homeTitle" :background="background" :title-color="titleColor" :custom-back="about"></u-navbar>
+        <u-navbar :is-back="false" title="今日鲜鱼" :background="navBackground" title-color="#ffffff"></u-navbar>
 
-        <!--首页模块化组合组件-->
-        <coreshopPage :coreshopdata="pageData"></coreshopPage>
-        <!--版权组件-->
-        <copyright></copyright>
-        <!--客服组件-->
-        <button class="floatingButton" hover-class="none" open-type="contact" bindcontact="showChat" :session-from="kefupara">
-            <u-icon name="server-man" color="#e54d42" size="60"></u-icon>
-        </button>
-        <!--返回顶部组件-->
-        <u-back-top :scroll-top="scrollTop" :duration="500"></u-back-top>
+        <view class="hero-card">
+            <view>
+                <view class="hero-kicker">硇洲岛 · 今日到货</view>
+                <view class="hero-title">今日鲜鱼接龙</view>
+                <view class="hero-desc">库存实时更新，下单后自动为您留货</view>
+            </view>
+            <view class="hero-order" @click="goMyOrders">
+                <u-icon name="order" size="30" color="#ffffff"></u-icon>
+                <text>我的预订</text>
+            </view>
+        </view>
 
-        <!-- 登录提示 -->
+        <view class="notice-bar">
+            <u-icon name="info-circle" size="28" color="#8a6337"></u-icon>
+            <text>本小程序只用于选鱼、库存和预订，不在小程序内收款；货款按微信群原方式转账。</text>
+        </view>
+
+        <view class="section-head">
+            <view>
+                <view class="section-title">今日鱼货</view>
+                <view class="section-subtitle">按剩余库存接龙，售完即止</view>
+            </view>
+            <view class="refresh-btn" @click="loadFish(true)">
+                <u-icon name="reload" size="26" color="#5f6b63"></u-icon>
+                <text>刷新</text>
+            </view>
+        </view>
+
+        <view v-if="loading && fishList.length === 0" class="state-card">
+            <u-loading mode="circle" size="46"></u-loading>
+            <view class="state-text">正在读取今日库存...</view>
+        </view>
+
+        <view v-else-if="!loading && fishList.length === 0" class="state-card">
+            <u-empty text="今日鱼货还未上架" mode="list"></u-empty>
+        </view>
+
+        <view v-else class="fish-list">
+            <view class="fish-card" v-for="item in fishList" :key="item.id">
+                <view class="fish-image-wrap" @click="goGoodsDetail(item.id)">
+                    <image class="fish-image" :src="item.image" mode="aspectFill"></image>
+                    <view class="soldout-mask" v-if="item.availableStock <= 0">已售罄</view>
+                </view>
+
+                <view class="fish-main">
+                    <view class="fish-top" @click="goGoodsDetail(item.id)">
+                        <view class="fish-name">{{ item.name }}</view>
+                        <view class="fish-brief" v-if="item.brief">{{ item.brief }}</view>
+                    </view>
+
+                    <view class="price-line">
+                        <view class="member-price">
+                            <text class="price-label">会员价</text>
+                            <text class="price-symbol">¥</text>
+                            <text class="price-number">{{ formatPrice(item.price) }}</text>
+                            <text class="price-unit">/{{ item.unit }}</text>
+                        </view>
+                        <view class="normal-price" v-if="showMarketPrice(item)">
+                            非会员 ¥{{ formatPrice(item.mktprice) }}/{{ item.unit }}
+                        </view>
+                    </view>
+
+                    <view class="stock-line">
+                        <view class="stock-text" :class="{ danger: item.availableStock <= 3 }">
+                            剩余 <text class="stock-number">{{ item.availableStock }}</text>{{ item.unit }}
+                        </view>
+                        <view class="stepper" :class="{ disabled: item.availableStock <= 0 || !item.productId }">
+                            <view class="step-btn" @click.stop="decrease(item)">−</view>
+                            <view class="step-value">{{ item.qty }}{{ item.unit }}</view>
+                            <view class="step-btn plus" @click.stop="increase(item)">＋</view>
+                        </view>
+                    </view>
+                </view>
+            </view>
+        </view>
+
+        <view class="bottom-space"></view>
+
+        <view class="reservation-footer">
+            <view class="summary">
+                <view class="summary-main">
+                    已选 <text class="summary-strong">{{ selectedKinds }}</text> 种
+                    <text class="summary-dot">·</text>
+                    {{ selectedQuantityText }}
+                </view>
+                <view class="summary-price" v-if="selectedKinds > 0">预计 ¥{{ selectedAmount }}</view>
+                <view class="summary-hint" v-else>请选择要预订的鱼货</view>
+            </view>
+            <button class="submit-btn" :class="{ disabled: selectedKinds === 0 || submitting }" :disabled="selectedKinds === 0 || submitting" @click="submitReservation">
+                {{ submitting ? '正在提交...' : '提交预订' }}
+            </button>
+        </view>
+
         <coreshop-login-modal></coreshop-login-modal>
     </view>
 </template>
+
 <script>
-    import { mapMutations, mapActions, mapState } from 'vuex';
-    import coreshopPage from '@/components/coreshop-page/coreshop.vue';
-    import copyright from '@/components/coreshop-copyright/coreshop-copyright.vue';
-    import modalImg from '@/components/coreshop-modal-img/coreshop-modal-img.vue';
     import { goods } from '@/common/mixins/mixinsHelper.js';
+
     export default {
         mixins: [goods],
-        components: {
-            copyright,
-            coreshopPage,
-            modalImg
-        },
         data() {
             return {
-                background: this.$coreTheme.mainNabBar.background,
-                titleColor: this.$coreTheme.mainNabBar.titleColor,
-
-                swiperItems: [],
-                currentIndex: 0,
-                opacity: 0,
-                scrollTop: 0,
-                imageUrl: '/static/images/ShareImage.png', //店铺分享图片
-                pageData: [],
-                pageCode: 'mobile_home', //页面布局编码
-                //userInfo: {}, // 用户信息
-                kefupara: '', //客服传递资料
-                shareUrl: '/pages/share/jump/jump',
-                modalShow: true,
-                homeTitle: '',
+                navBackground: { backgroundColor: '#245b43' },
+                fishList: [],
+                loading: false,
+                submitting: false,
+                loadedOnce: false
             };
         },
         computed: {
-            ...mapState({
-                hasLogin: state => state.hasLogin,
-                userInfo: state => state.userInfo,
-            }),
-            hasLogin: {
-                get() {
-                    return this.$store.state.hasLogin;
-                },
-                set(val) {
-                    this.$store.commit('hasLogin', val);
-                }
+            selectedItems() {
+                return this.fishList.filter(item => item.qty > 0 && item.productId);
             },
-            userInfo: {
-                get() {
-                    return this.$store.state.userInfo;
-                },
-                set(val) {
-                    this.$store.commit('userInfo', val);
-                }
+            selectedKinds() {
+                return this.selectedItems.length;
             },
-            appTitle() {
-                this.homeTitle = this.$store.state.config.shopName;
-                return this.homeTitle;
+            selectedAmount() {
+                const amount = this.selectedItems.reduce((sum, item) => sum + Number(item.price || 0) * item.qty, 0);
+                return amount.toFixed(2);
             },
-            // 获取店铺联系人手机号
-            shopMobile() {
-                return this.$store.state.config.shopMobile || 0;
+            selectedQuantityText() {
+                if (this.selectedItems.length === 0) return '0斤';
+                const units = [...new Set(this.selectedItems.map(item => item.unit || '斤'))];
+                const total = this.selectedItems.reduce((sum, item) => sum + item.qty, 0);
+                return units.length === 1 ? `${total}${units[0]}` : `${total}份`;
             }
         },
-        onLoad(e) {
-            this.initData();
-            console.log("数据：" + this.$globalConstVars.apiFilesUrl);
+        onLoad() {
+            this.loadFish();
         },
-        methods: {
-            about() {
-
-            },
-            goSearch() {
-                uni.navigateTo({
-                    url: '/pages/search/search'
-                });
-            },
-            // 首页初始化获取数据
-            initData() {
-                uni.showLoading({
-                    title: '加载中'
-                });
-                //获取首页配置
-                this.$u.api.getPageConfig({ code: this.pageCode }).then(res => {
-                    if (res.status == true) {
-                        this.pageData = res.data.items;
-
-                        if (res.data.items.length > 0) {
-                            for (var i = 0; i < res.data.items.length; i++) {
-                                if (res.data.items[i].widgetCode == 'topImgSlide') {
-                                    var data = res.data.items[i].parameters.list;
-                                    for (var i = 0; i < data.length; i++) {
-                                        let moder = {
-                                            image: data[i].image == '/images/empty-banner.png' ? '/static/images/common/empty-banner.png' : data[i].image,
-                                            bg: data[i].bg == '/images/empty-banner.png' ? '/static/images/common/empty-banner.png' : data[i].bg,
-                                            opentype: 'click',
-                                            url: '',
-                                            title: data[i].linkType,
-                                            linkType: data[i].linkType,
-                                            linkValue: data[i].linkValue,
-                                        }
-                                        this.swiperItems.push(moder);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    setTimeout(function () {
-                        uni.hideLoading();
-                    }, 1000);
-                });
-
-                var _this = this;
-                if (this.$db.get('userToken')) {
-                    this.$u.api.userInfo().then(res => {
-                        if (res.status) {
-                            _this.userInfo = res.data;
-                            _this.hasLogin = true;
-                            // #ifdef MP-WEIXIN
-                            //微信小程序打开客服时，传递用户信息
-                            var kefupara = {};
-                            kefupara.nickName = res.data.nickName;
-                            kefupara.tel = res.data.mobile;
-                            _this.kefupara = JSON.stringify(kefupara);
-                            //console.log(_this.kefupara);
-                            // #endif
-                        }
-                    });
-                }
-                this.getShareUrl();
-            },
-            swiperChange(e) {
-                this.currentIndex = e;
-            },
-            //在线客服,只有手机号的，请自己替换为手机号
-            showChat() {
-            },
-            //获取分享URL
-            getShareUrl() {
-                let data = {
-                    client: 2,
-                    url: "/pages/share/jump/jump",
-                    type: 1,
-                    page: 1,
-                };
-                let userToken = this.$db.get('userToken');
-                if (userToken && userToken != '') {
-                    data['token'] = userToken;
-                }
-                this.$u.api.share(data).then(res => {
-                    this.shareUrl = res.data
-                });
-            },
-            taped: function (e) {
-                this.showSliderInfo(this.swiperItems[e].linkType, this.swiperItems[e].linkValue);
-            },
-            // 广告点击查看详情
-            showSliderInfo(type, val) {
-                if (!val) {
-                    return;
-                }
-                if (type == 1) {
-                    if (val.indexOf('http') != -1) {
-                        // #ifdef H5
-                        window.location.href = val
-                        // #endif
-                    } else {
-                        // #ifdef H5 || APP-PLUS || APP-PLUS-NVUE || MP
-                        if (val == '/pages/index/default/default' || val == '/pages/category/index/index' || val == '/pages/index/cart/cart' || val == '/pages/index/member/member') {
-                            this.$u.route({
-                                type: 'switchTab',
-                                url: val
-                            });
-                            return;
-                        } else if (val.indexOf('/pages/coupon/coupon') > -1) {
-                            var id = val.replace('/pages/coupon/coupon?id=', "");
-                            this.receiveCoupon(id)
-                        } else {
-                            this.$u.route(val);
-                            return;
-                        }
-                        // #endif
-                    }
-                } else if (type == 2) {
-                    // 商品详情
-                    this.goGoodsDetail(val)
-                } else if (type == 3) {
-                    // 文章详情
-                    this.$u.route('/pages/article/details/details?id=' + val + '&idType=1')
-                } else if (type == 4) {
-                    // 文章列表
-                    this.$u.route('/pages/article/list/list?cid=' + val)
-                } else if (type == 5) {
-                    //智能表单
-                    this.$u.route('/pages/form/details/details?id=' + val)
-                }
-            },
-            // 用户领取优惠券
-            receiveCoupon(couponId) {
-                let data = {
-                    promotion_id: couponId
-                }
-                this.$u.api.getCoupon(data).then(res => {
-                    if (res.status) {
-                        this.$refs.uToast.show({ title: res.msg, type: 'success', back: false })
-                    } else {
-                        this.$u.toast(res.msg)
-                    }
-                })
-            },
-
+        onShow() {
+            if (this.loadedOnce && !this.loading) {
+                this.loadFish(false, true);
+            }
         },
         onPullDownRefresh() {
-            this.swiperItems = [];
-            this.initData();
-            uni.stopPullDownRefresh();
+            this.loadFish(true).finally(() => {
+                uni.stopPullDownRefresh();
+            });
         },
-        //分享
-        onShareAppMessage(res) {
-            return {
-                title: this.$store.state.config.shareTitle,
-                imageUrl: this.$store.state.config.shareImage,
-                path: this.shareUrl
+        methods: {
+            async loadFish(showToast = false, preserveSelection = false) {
+                if (this.loading) return;
+                this.loading = true;
+
+                const oldQty = {};
+                if (preserveSelection) {
+                    this.fishList.forEach(item => {
+                        oldQty[item.id] = item.qty || 0;
+                    });
+                }
+
+                try {
+                    const listRes = await this.$u.api.goodsList({
+                        where: JSON.stringify({}),
+                        limit: 50,
+                        page: 1,
+                        order: 'sort asc'
+                    });
+
+                    if (!listRes.status || !listRes.data || !listRes.data.list) {
+                        throw new Error(listRes.msg || '鱼货读取失败');
+                    }
+
+                    const baseList = Array.from(listRes.data.list);
+                    const detailTasks = baseList.map(item => this.$u.api.goodsDetail({ id: item.id })
+                        .then(res => ({ item, res }))
+                        .catch(() => ({ item, res: null })));
+                    const details = await Promise.all(detailTasks);
+
+                    this.fishList = details.map(({ item, res }) => {
+                        const detail = res && res.status && res.data ? res.data : item;
+                        const product = detail.product || {};
+                        const availableStock = Math.max(0, Number(product.stock !== undefined ? product.stock : detail.stock || 0));
+                        const previousQty = preserveSelection ? Number(oldQty[item.id] || 0) : 0;
+
+                        return {
+                            id: detail.id || item.id,
+                            name: detail.name || item.name || '今日鱼货',
+                            brief: detail.brief || item.brief || '',
+                            image: detail.image || item.image || '/static/images/common/empty-banner.png',
+                            unit: detail.unit || '斤',
+                            price: Number(product.price !== undefined ? product.price : detail.price || 0),
+                            mktprice: Number(product.mktprice !== undefined ? product.mktprice : detail.mktprice || 0),
+                            productId: Number(product.id || 0),
+                            availableStock,
+                            qty: Math.min(previousQty, availableStock)
+                        };
+                    }).filter(item => item.productId > 0 || item.availableStock >= 0);
+
+                    this.loadedOnce = true;
+                    if (showToast) this.$u.toast('库存已更新');
+                } catch (error) {
+                    this.$u.toast(error && error.message ? error.message : '鱼货读取失败，请稍后重试');
+                } finally {
+                    this.loading = false;
+                }
+            },
+            increase(item) {
+                if (!item.productId || item.availableStock <= 0) return;
+                if (item.qty >= item.availableStock) {
+                    this.$u.toast(`当前最多可订${item.availableStock}${item.unit}`);
+                    return;
+                }
+                item.qty += 1;
+            },
+            decrease(item) {
+                if (item.qty > 0) item.qty -= 1;
+            },
+            formatPrice(value) {
+                const num = Number(value || 0);
+                return Number.isInteger(num) ? num.toString() : num.toFixed(1).replace(/\.0$/, '');
+            },
+            showMarketPrice(item) {
+                return Number(item.mktprice || 0) > 0 && Number(item.mktprice) !== Number(item.price);
+            },
+            async submitReservation() {
+                if (this.submitting || this.selectedItems.length === 0) return;
+                this.submitting = true;
+
+                try {
+                    const cartIds = [];
+                    for (const item of this.selectedItems) {
+                        const res = await this.$u.api.addCart({
+                            productId: item.productId,
+                            nums: item.qty,
+                            type: 2,
+                            cartType: 1
+                        });
+
+                        if (!res.status) {
+                            throw new Error(`${item.name}：${res.msg || '库存不足或无法预订'}`);
+                        }
+                        cartIds.push(res.data);
+                    }
+
+                    if (cartIds.length === 0) {
+                        throw new Error('没有可提交的鱼货');
+                    }
+
+                    this.$u.route('/pages/placeOrder/index/index?cartIds=' + JSON.stringify(cartIds));
+                } catch (error) {
+                    this.$u.toast(error && error.message ? error.message : '提交失败，请重新确认库存');
+                    await this.loadFish(false, true);
+                } finally {
+                    this.submitting = false;
+                }
+            },
+            goMyOrders() {
+                this.$u.route('/pages/member/order/index/index');
             }
-        },
-        onShareTimeline(res) {
-            return {
-                title: this.$store.state.config.shareTitle,
-                imageUrl: this.$store.state.config.shareImage,
-                path: this.shareUrl
-            }
-        },
-        onPageScroll: function (e) {
-            this.scrollTop = e.scrollTop;
-            if (e.scrollTop <= 100) {
-                this.opacity = e.scrollTop / 100;
-            } else if (this.scrollTop > 100) {
-                this.opacity = 1;
-            }
-        },
+        }
     };
 </script>
 
 <style lang="scss">
+    .seafood-page {
+        min-height: 100vh;
+        background: #f4f6f3;
+        padding-bottom: 150rpx;
+    }
+
+    .hero-card {
+        margin: 24rpx;
+        padding: 34rpx 30rpx;
+        border-radius: 24rpx;
+        background: linear-gradient(135deg, #245b43 0%, #39775b 100%);
+        color: #ffffff;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 10rpx 28rpx rgba(36, 91, 67, 0.18);
+    }
+
+    .hero-kicker {
+        font-size: 22rpx;
+        opacity: 0.82;
+        letter-spacing: 2rpx;
+    }
+
+    .hero-title {
+        margin-top: 8rpx;
+        font-size: 38rpx;
+        font-weight: 700;
+    }
+
+    .hero-desc {
+        margin-top: 12rpx;
+        font-size: 24rpx;
+        opacity: 0.86;
+    }
+
+    .hero-order {
+        flex-shrink: 0;
+        margin-left: 18rpx;
+        padding: 16rpx 18rpx;
+        border-radius: 16rpx;
+        background: rgba(255, 255, 255, 0.14);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6rpx;
+        font-size: 22rpx;
+    }
+
+    .notice-bar {
+        margin: 0 24rpx 24rpx;
+        padding: 20rpx 22rpx;
+        border-radius: 16rpx;
+        background: #fff5df;
+        color: #785a35;
+        display: flex;
+        align-items: flex-start;
+        gap: 12rpx;
+        font-size: 24rpx;
+        line-height: 1.6;
+    }
+
+    .section-head {
+        padding: 6rpx 28rpx 18rpx;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+    }
+
+    .section-title {
+        font-size: 34rpx;
+        font-weight: 700;
+        color: #26342d;
+    }
+
+    .section-subtitle {
+        margin-top: 6rpx;
+        font-size: 22rpx;
+        color: #8a948e;
+    }
+
+    .refresh-btn {
+        display: flex;
+        align-items: center;
+        gap: 6rpx;
+        font-size: 24rpx;
+        color: #5f6b63;
+    }
+
+    .state-card {
+        margin: 0 24rpx;
+        min-height: 300rpx;
+        border-radius: 20rpx;
+        background: #ffffff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .state-text {
+        margin-top: 18rpx;
+        font-size: 25rpx;
+        color: #8a948e;
+    }
+
+    .fish-list {
+        padding: 0 24rpx;
+    }
+
+    .fish-card {
+        margin-bottom: 18rpx;
+        padding: 18rpx;
+        border-radius: 22rpx;
+        background: #ffffff;
+        display: flex;
+        box-shadow: 0 4rpx 18rpx rgba(35, 56, 45, 0.05);
+    }
+
+    .fish-image-wrap {
+        position: relative;
+        width: 190rpx;
+        height: 190rpx;
+        flex-shrink: 0;
+        overflow: hidden;
+        border-radius: 18rpx;
+        background: #edf0ed;
+    }
+
+    .fish-image {
+        width: 100%;
+        height: 100%;
+    }
+
+    .soldout-mask {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 8rpx 0;
+        text-align: center;
+        background: rgba(31, 39, 35, 0.72);
+        color: #ffffff;
+        font-size: 22rpx;
+    }
+
+    .fish-main {
+        min-width: 0;
+        flex: 1;
+        margin-left: 20rpx;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .fish-name {
+        font-size: 31rpx;
+        font-weight: 700;
+        color: #26342d;
+        line-height: 1.35;
+    }
+
+    .fish-brief {
+        margin-top: 7rpx;
+        font-size: 22rpx;
+        color: #919b95;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .price-line {
+        margin-top: 10rpx;
+    }
+
+    .member-price {
+        display: flex;
+        align-items: baseline;
+        color: #c84b3b;
+    }
+
+    .price-label {
+        margin-right: 8rpx;
+        padding: 3rpx 8rpx;
+        border-radius: 7rpx;
+        background: #fbe8e4;
+        font-size: 20rpx;
+        color: #ba4b3c;
+    }
+
+    .price-symbol {
+        font-size: 24rpx;
+        font-weight: 700;
+    }
+
+    .price-number {
+        font-size: 37rpx;
+        font-weight: 800;
+    }
+
+    .price-unit {
+        margin-left: 3rpx;
+        font-size: 22rpx;
+    }
+
+    .normal-price {
+        margin-top: 3rpx;
+        font-size: 21rpx;
+        color: #a2aaa5;
+    }
+
+    .stock-line {
+        margin-top: 10rpx;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .stock-text {
+        font-size: 23rpx;
+        color: #68736c;
+    }
+
+    .stock-text.danger {
+        color: #c34d42;
+    }
+
+    .stock-number {
+        margin: 0 3rpx;
+        font-size: 27rpx;
+        font-weight: 700;
+    }
+
+    .stepper {
+        height: 58rpx;
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        border: 1rpx solid #dfe5e1;
+        border-radius: 14rpx;
+        background: #f8faf8;
+    }
+
+    .stepper.disabled {
+        opacity: 0.45;
+    }
+
+    .step-btn {
+        width: 56rpx;
+        height: 58rpx;
+        line-height: 56rpx;
+        text-align: center;
+        font-size: 32rpx;
+        color: #4f5d55;
+    }
+
+    .step-btn.plus {
+        color: #245b43;
+        font-weight: 700;
+    }
+
+    .step-value {
+        min-width: 82rpx;
+        padding: 0 8rpx;
+        text-align: center;
+        font-size: 24rpx;
+        color: #26342d;
+        border-left: 1rpx solid #e2e7e4;
+        border-right: 1rpx solid #e2e7e4;
+    }
+
+    .bottom-space {
+        height: 26rpx;
+    }
+
+    .reservation-footer {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 20;
+        min-height: 118rpx;
+        padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
+        background: rgba(255, 255, 255, 0.98);
+        border-top: 1rpx solid #e8ece9;
+        display: flex;
+        align-items: center;
+        gap: 18rpx;
+    }
+
+    .summary {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .summary-main {
+        font-size: 25rpx;
+        color: #4f5d55;
+    }
+
+    .summary-strong {
+        font-weight: 700;
+        color: #245b43;
+    }
+
+    .summary-dot {
+        margin: 0 8rpx;
+        color: #adb5b0;
+    }
+
+    .summary-price {
+        margin-top: 5rpx;
+        font-size: 23rpx;
+        font-weight: 600;
+        color: #c84b3b;
+    }
+
+    .summary-hint {
+        margin-top: 5rpx;
+        font-size: 22rpx;
+        color: #9aa39e;
+    }
+
+    .submit-btn {
+        width: 230rpx;
+        height: 78rpx;
+        line-height: 78rpx;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 39rpx;
+        background: #245b43;
+        color: #ffffff;
+        font-size: 29rpx;
+        font-weight: 700;
+    }
+
+    .submit-btn::after {
+        border: 0;
+    }
+
+    .submit-btn.disabled {
+        background: #b9c3bd;
+    }
 </style>
