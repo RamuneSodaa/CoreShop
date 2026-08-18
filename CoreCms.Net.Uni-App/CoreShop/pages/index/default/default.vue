@@ -141,10 +141,12 @@
                 this.loadFish(false, true);
             }
         },
-        onPullDownRefresh() {
-            this.loadFish(true).finally(() => {
+        async onPullDownRefresh() {
+            try {
+                await this.loadFish(true);
+            } finally {
                 uni.stopPullDownRefresh();
-            });
+            }
         },
         methods: {
             async loadFish(showToast = false, preserveSelection = false) {
