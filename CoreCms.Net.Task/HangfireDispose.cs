@@ -41,8 +41,9 @@ namespace CoreCms.Net.Task
             //CancelOrderJob代表你要触发的类 Execute代表你要触发的方法
 
 
-            //自动取消订单任务
-            RecurringJob.AddOrUpdate<AutoCancelOrderJob>(s => s.Execute(), "0 0/5 * * * ? ", TimeZoneInfo.Local); // 每5分钟取消一次订单
+            // Seafood Reservation MVP：订单提交即视为“预订成功”，货款在线下微信转账。
+            // 因此不能按普通商城逻辑自动取消“未在线支付”的订单，否则已经占用的鱼货库存会被错误释放。
+            // RecurringJob.AddOrUpdate<AutoCancelOrderJob>(s => s.Execute(), "0 0/5 * * * ? ", TimeZoneInfo.Local);
 
             //自动完成订单任务
             RecurringJob.AddOrUpdate<CompleteOrderJob>(s => s.Execute(), "0 0 0/1 * * ? ", TimeZoneInfo.Local); // 每小时自动完成订单
@@ -53,8 +54,8 @@ namespace CoreCms.Net.Task
             //自动签收订单任务
             RecurringJob.AddOrUpdate<AutoSignOrderJob>(s => s.Execute(), "0 0 0/1 * * ? ", TimeZoneInfo.Local); // 每小时自动完成订单
 
-            //催付款订单
-            RecurringJob.AddOrUpdate<RemindOrderPayJob>(s => s.Execute(), "0 0/5 * * * ? ", TimeZoneInfo.Local); // 每5分钟催付款订单
+            // Seafood Reservation MVP：不启用在线支付，因此关闭催付款任务。
+            // RecurringJob.AddOrUpdate<RemindOrderPayJob>(s => s.Execute(), "0 0/5 * * * ? ", TimeZoneInfo.Local);
 
             //拼团自动取消到期团（每分钟执行一次）
             RecurringJob.AddOrUpdate<AutoCanclePinTuanJob>(s => s.Execute(), "0 0/2 * * * ? ", TimeZoneInfo.Local); // 每分钟取消一次订单
