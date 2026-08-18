@@ -11,11 +11,8 @@
             "Payment" : {},
             "VideoPlayer" : {}
         },
-        /* 模块配置 */
         "distribute" : {
-            /* 应用发布信息 */
             "android" : {
-                /* android打包配置 */
                 "permissions" : [
                     "<uses-feature android:name=\"android.hardware.camera\"/>",
                     "<uses-feature android:name=\"android.hardware.camera.autofocus\"/>",
@@ -45,7 +42,6 @@
                 "abiFilters" : [ "armeabi-v7a", "arm64-v8a", "x86" ]
             },
             "ios" : {},
-            /* ios打包配置 */
             "sdkConfigs" : {
                 "payment" : {
                     "weixin" : {
@@ -98,13 +94,11 @@
             "waiting" : true
         }
     },
-    /* SDK配置 */
     "quickapp" : {},
-    /* 快应用特有相关 */
     "mp-weixin" : {
-        "appid" : "wx9ffab147a56e9424",
+        "appid" : "",
         "setting" : {
-            "urlCheck" : true,
+            "urlCheck" : false,
             "postcss" : true,
             "minified" : true,
             "es6" : true,
