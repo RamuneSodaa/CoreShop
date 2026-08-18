@@ -70,7 +70,7 @@
                         <view class="stock-text" :class="{ danger: item.availableStock <= 3 }">
                             剩余 <text class="stock-number">{{ item.availableStock }}</text>{{ item.unit }}
                         </view>
-                        <view class="stepper" :class="{ disabled: item.availableStock <= 0 || !item.productId }">
+                        <view class="stepper" :class="{ disabled: item.availableStock <= 0 }">
                             <view class="step-btn" @click.stop="decrease(item)">−</view>
                             <view class="step-value">{{ item.qty }}{{ item.unit }}</view>
                             <view class="step-btn plus" @click.stop="increase(item)">＋</view>
@@ -194,7 +194,7 @@
                             availableStock,
                             qty: Math.min(previousQty, availableStock)
                         };
-                    }).filter(item => item.productId > 0 || item.availableStock >= 0);
+                    }).filter(item => item.productId > 0);
 
                     this.loadedOnce = true;
                     if (showToast) this.$u.toast('库存已更新');
@@ -217,7 +217,7 @@
             },
             formatPrice(value) {
                 const num = Number(value || 0);
-                return Number.isInteger(num) ? num.toString() : num.toFixed(1).replace(/\.0$/, '');
+                return num.toFixed(2).replace(/\.?0+$/, '');
             },
             showMarketPrice(item) {
                 return Number(item.mktprice || 0) > 0 && Number(item.mktprice) !== Number(item.price);
@@ -307,8 +307,11 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 6rpx;
         font-size: 22rpx;
+    }
+
+    .hero-order text {
+        margin-top: 6rpx;
     }
 
     .notice-bar {
@@ -319,9 +322,13 @@
         color: #785a35;
         display: flex;
         align-items: flex-start;
-        gap: 12rpx;
         font-size: 24rpx;
         line-height: 1.6;
+    }
+
+    .notice-bar text {
+        flex: 1;
+        margin-left: 12rpx;
     }
 
     .section-head {
@@ -346,9 +353,12 @@
     .refresh-btn {
         display: flex;
         align-items: center;
-        gap: 6rpx;
         font-size: 24rpx;
         color: #5f6b63;
+    }
+
+    .refresh-btn text {
+        margin-left: 6rpx;
     }
 
     .state-card {
@@ -549,12 +559,12 @@
         border-top: 1rpx solid #e8ece9;
         display: flex;
         align-items: center;
-        gap: 18rpx;
     }
 
     .summary {
         min-width: 0;
         flex: 1;
+        margin-right: 18rpx;
     }
 
     .summary-main {
