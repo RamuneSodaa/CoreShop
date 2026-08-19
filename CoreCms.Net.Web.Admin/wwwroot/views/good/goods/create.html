@@ -75,7 +75,7 @@
                             <div class="layui-form-item layui-form-text">
                                 <label for="brief" class="layui-form-label layui-form-required">商品简介</label>
                                 <div class="layui-input-block">
-                                    <textarea name="goods[brief]" id="brief" lay-verify="required" class="layui-textarea" lay-reqText="简单的介绍，一般控制在100字以内,请输入不超过255个字符内容" placeholder="简单的介绍，一般控制在100字以内,请输入不超过255个字符内容"></textarea>
+                                    <textarea name="goods[brief]" id="brief" lay-verify="seafoodBriefRequired" class="layui-textarea" lay-reqText="简单的介绍，一般控制在100字以内,请输入不超过255个字符内容" placeholder="简单的介绍，一般控制在100字以内,请输入不超过255个字符内容"></textarea>
                                 </div>
                             </div>
 
@@ -86,6 +86,138 @@
                                     <input name="goods[unit]" id="unit" lay-verify="required|verifyunit" class="layui-input" lay-reqText="请输入单位" placeholder="请输入单位" />
                                 </div>
                             </div>
+                            <fieldset
+                                class="layui-elem-field"
+                                id="seafoodCreateConfigBox"
+                                style="margin-top:18px;padding:0 15px 15px;">
+                                <legend>鲜鱼售卖设置</legend>
+
+                                <blockquote
+                                    class="layui-elem-quote"
+                                    style="margin-top:12px;">
+                                    新增鱼货时可以直接设置今日鲜鱼的售卖方式和真实库存。
+                                    只有“水产海鲜”分类商品可以开启。
+                                </blockquote>
+
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">
+                                        参与今日鲜鱼
+                                    </label>
+
+                                    <div class="layui-input-inline layui-inline-2">
+                                        <input
+                                            type="checkbox"
+                                            name="seafoodEnabled"
+                                            id="seafoodCreateEnabled"
+                                            lay-filter="seafoodCreateEnabled"
+                                            lay-skin="switch"
+                                            lay-text="参与|关闭">
+                                    </div>
+
+                                    <div class="layui-form-mid layui-word-aux">
+                                        默认关闭。鱼货需要出现在今日接龙时再开启。
+                                    </div>
+                                </div>
+
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">
+                                        售卖方式
+                                    </label>
+
+                                    <div class="layui-input-inline layui-inline-3">
+                                        <select
+                                            name="seafoodSaleMode"
+                                            id="seafoodCreateSaleMode"
+                                            lay-filter="seafoodCreateSaleMode">
+                                            <option value="whole_jin">
+                                                整斤
+                                            </option>
+                                            <option value="half_jin">
+                                                半斤
+                                            </option>
+                                            <option value="piece">
+                                                按条
+                                            </option>
+                                        </select>
+                                    </div>
+
+                                    <div
+                                        class="layui-form-mid layui-word-aux"
+                                        id="seafoodCreateStepHint">
+                                        每次加减1斤
+                                    </div>
+                                </div>
+
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">
+                                        鲜鱼当前库存
+                                    </label>
+
+                                    <div class="layui-input-inline layui-inline-3">
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="999999"
+                                            step="1"
+                                            value="0"
+                                            name="seafoodStockQty"
+                                            id="seafoodCreateStockQty"
+                                            class="layui-input"
+                                            placeholder="例如 30">
+                                    </div>
+
+                                    <div class="layui-form-mid layui-word-aux">
+                                        今日鲜鱼接龙真正使用的库存。
+                                    </div>
+                                </div>
+
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">
+                                        会员价
+                                    </label>
+
+                                    <div class="layui-input-inline layui-inline-3">
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="999999"
+                                            step="0.01"
+                                            value="0"
+                                            name="seafoodMemberPrice"
+                                            id="seafoodCreateMemberPrice"
+                                            class="layui-input"
+                                            placeholder="例如 39.50">
+                                    </div>
+
+                                    <div class="layui-form-mid layui-word-aux">
+                                        顾客端会员价格。
+                                    </div>
+                                </div>
+
+                                <div class="layui-form-item">
+                                    <label class="layui-form-label">
+                                        非会员价
+                                    </label>
+
+                                    <div class="layui-input-inline layui-inline-3">
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="999999"
+                                            step="0.01"
+                                            value="0"
+                                            name="seafoodNonMemberPrice"
+                                            id="seafoodCreateNonMemberPrice"
+                                            class="layui-input"
+                                            placeholder="例如 46.60">
+                                    </div>
+
+                                    <div class="layui-form-mid layui-word-aux">
+                                        非会员价不能低于会员价。
+                                    </div>
+                                </div>
+
+                            </fieldset>
                             <div class="layui-form-item">
                                 <label for="sort" class="layui-form-label layui-form-required">商品排序</label>
                                 <div class="layui-input-inline layui-inline-2">
@@ -526,6 +658,178 @@
                 var sn = layui.coreHelper.getSN('SN');
                 $("#sn").val(sn);
 
+                function syncSeafoodCreateDefaultProduct() {
+                    if (
+                        !$('#seafoodCreateEnabled')
+                            .prop('checked')
+                    ) {
+                        return;
+                    }
+
+                    var stockQty = Number(
+                        $('#seafoodCreateStockQty').val() || 0
+                    );
+
+                    var memberPrice = Number(
+                        $('#seafoodCreateMemberPrice').val() || 0
+                    );
+
+                    var nonMemberPrice = Number(
+                        $('#seafoodCreateNonMemberPrice').val() || 0
+                    );
+
+                    var defaultRow = null;
+
+                    $('#productsTbody tr').each(
+                        function () {
+                            var row = $(this);
+
+                            if (
+                                row.find('.isdefalut')
+                                    .prop('checked')
+                            ) {
+                                defaultRow = row;
+                                return false;
+                            }
+                        }
+                    );
+
+                    if (!defaultRow) {
+                        return;
+                    }
+
+                    if (Number.isFinite(stockQty)) {
+                        // CoreShop旧SKU库存只能存整数。
+                        // 鲜鱼真实库存29.5斤时，旧SKU记30。
+                        defaultRow
+                            .find(
+                                'input[name="product[stock][]"]'
+                            )
+                            .val(
+                                Math.ceil(
+                                    Math.max(0, stockQty)
+                                )
+                            );
+                    }
+
+                    if (Number.isFinite(memberPrice)) {
+                        defaultRow
+                            .find(
+                                'input[name="product[price][]"]'
+                            )
+                            .val(memberPrice.toFixed(2));
+                    }
+
+                    if (Number.isFinite(nonMemberPrice)) {
+                        defaultRow
+                            .find(
+                                'input[name="product[mktprice][]"]'
+                            )
+                            .val(nonMemberPrice.toFixed(2));
+                    }
+                }
+
+                function syncSeafoodCreateMode(mode) {
+                    var normalized = mode || 'whole_jin';
+                    var enabled =
+                        $('#seafoodCreateEnabled').prop('checked');
+
+                    var unit =
+                        normalized === 'piece'
+                            ? '条'
+                            : '斤';
+
+                    var step =
+                        normalized === 'half_jin'
+                            ? 0.5
+                            : 1;
+
+                    $('#seafoodCreateStockQty')
+                        .attr('step', step);
+
+                    if (enabled) {
+                        $('#unit').val(unit);
+
+                        if (!$('#brief').val()) {
+                            $('#brief').val(
+                                '今日鲜鱼，实际以当天到货为准'
+                            );
+                        }
+
+                        var goodsSn = $('#sn').val();
+
+                        if (
+                            !goodsSn
+                            || !String(goodsSn)
+                                .toUpperCase()
+                                .startsWith('SN')
+                        ) {
+                            $('#sn').val(
+                                layui.coreHelper.getSN('SN')
+                            );
+                        }
+
+                        $(
+                            "input[name='product[sn][]']"
+                        ).each(function () {
+                            var current = $(this).val();
+
+                            if (
+                                !current
+                                || !String(current)
+                                    .toUpperCase()
+                                    .startsWith('SN')
+                            ) {
+                                $(this).val(
+                                    layui.coreHelper.getSN('SN')
+                                );
+                            }
+                        });
+                    }
+
+                    if (normalized === 'half_jin') {
+                        $('#seafoodCreateStepHint')
+                            .text('每次加减0.5斤');
+                    } else if (normalized === 'piece') {
+                        $('#seafoodCreateStepHint')
+                            .text('每次加减1条');
+                    } else {
+                        $('#seafoodCreateStepHint')
+                            .text('每次加减1斤');
+                    }
+
+                    syncSeafoodCreateDefaultProduct();
+                }
+
+                $(
+                    '#seafoodCreateStockQty, '
+                    + '#seafoodCreateMemberPrice, '
+                    + '#seafoodCreateNonMemberPrice'
+                )
+                    .off('input.seafoodCreateSync')
+                    .on(
+                        'input.seafoodCreateSync',
+                        function () {
+                            syncSeafoodCreateDefaultProduct();
+                        }
+                    );
+
+                form.on(
+                    'select(seafoodCreateSaleMode)',
+                    function (data) {
+                        syncSeafoodCreateMode(data.value);
+                    }
+                );
+
+                form.on(
+                    'switch(seafoodCreateEnabled)',
+                    function () {
+                        syncSeafoodCreateMode(
+                            $('#seafoodCreateSaleMode').val()
+                        );
+                    }
+                );
+
                 //加载编辑器
                 var Authorization = layui.data(layui.setter.tableName)[layui.setter.request.tokenName];
                 var Authorization = layui.data(layui.setter.tableName)[layui.setter.request.tokenName];
@@ -784,6 +1088,16 @@
                     verifyunit: [/^[\S]{0,20}$/, '商品单位最大只允许输入20位字符，且不能出现空格'],
                     verifylabelIds: [/^[\S]{0,50}$/, '标签id逗号分隔最大只允许输入50位字符，且不能出现空格'],
                     verifyGoodsCategory: [/\S/, '请选择商品分类'],
+
+                    seafoodBriefRequired: function (value) {
+                        if (
+                            !value
+                            && !$('#seafoodCreateEnabled')
+                                .prop('checked')
+                        ) {
+                            return '请输入商品简介';
+                        }
+                    },
                 });
 
                 //添加分类
@@ -1305,9 +1619,29 @@
 
                         goods.images = field['goods[images]'];
                         goods.image = field['goods[image]'];
+
+                        if (
+                            field.seafoodEnabled === 'on'
+                        ) {
+                            if (!goods.brief) {
+                                goods.brief =
+                                    '今日鲜鱼，实际以当天到货为准';
+                            }
+
+                        }
                         goods.video = field['goods[video]'];
 
                         goods.intro = window.editor.getData();
+
+                        if (
+                            !goods.intro
+                            && field.seafoodEnabled === 'on'
+                        ) {
+                            goods.intro =
+                                '<p>今日鲜鱼，实际品种规格、'
+                                + '大小及形态以当天到货为准。</p>';
+                        }
+
                         if (!!!goods.intro) {
                             layer.msg('商品详情不能为空', { icon: 5 });
                             return false;
@@ -1365,20 +1699,292 @@
                                 gradePrice.push(gradePriceChild);
                             }
                         }
-                        if (debug) { console.log(field); } //开启调试返回数据
-                        //return false;
-                        //提交 Ajax 成功后，关闭当前弹层并重载表格
-                        coreHelper.Post("Api/CoreCmsGoods/DoCreate", { goods: goods, products: products, gradePrice: gradePrice, goodsCategoryExtendIds: field.goodsCategoryExtendIds }, function (e) {
-                            console.log(e)
-                            if (e.code === 0) {
-                                layer.msg(e.msg, { time: 1000 },
-                                    function () {
-                                        location.hash = '/good/goods/';
-                                    });
-                            } else {
-                                layer.msg(e.msg);
+                        var seafoodEnabled =
+                            field.seafoodEnabled === 'on';
+
+                        var seafoodSaleMode =
+                            field.seafoodSaleMode
+                            || 'whole_jin';
+
+                        var seafoodStockQty =
+                            Number(field.seafoodStockQty || 0);
+
+                        var seafoodMemberPrice =
+                            Number(
+                                field.seafoodMemberPrice || 0
+                            );
+
+                        var seafoodNonMemberPrice =
+                            Number(
+                                field.seafoodNonMemberPrice || 0
+                            );
+
+                        var seafoodStep =
+                            seafoodSaleMode === 'half_jin'
+                                ? 0.5
+                                : 1;
+
+                        var seafoodUnit =
+                            seafoodSaleMode === 'piece'
+                                ? '条'
+                                : '斤';
+
+                        var defaultProduct = null;
+
+                        for (
+                            var seafoodIndex = 0;
+                            seafoodIndex < products.length;
+                            seafoodIndex++
+                        ) {
+                            if (
+                                products[seafoodIndex].isDefalut
+                            ) {
+                                defaultProduct =
+                                    products[seafoodIndex];
+                                break;
                             }
-                        });
+                        }
+
+                        if (seafoodEnabled) {
+                            if (
+                                !goods.sn
+                                || !String(goods.sn)
+                                    .toUpperCase()
+                                    .startsWith('SN')
+                            ) {
+                                goods.sn =
+                                    layui.coreHelper.getSN('SN');
+                            }
+
+                            if (
+                                defaultProduct
+                                && (
+                                    !defaultProduct.sn
+                                    || !String(defaultProduct.sn)
+                                        .toUpperCase()
+                                        .startsWith('SN')
+                                )
+                            ) {
+                                defaultProduct.sn =
+                                    layui.coreHelper.getSN('SN');
+                            }
+
+                            if (
+                                Number(goods.goodsCategoryId)
+                                !== 2058
+                            ) {
+                                layer.msg(
+                                    '只有水产海鲜分类商品才能参与今日鲜鱼'
+                                );
+                                return false;
+                            }
+
+                            if (
+                                !Number.isFinite(
+                                    seafoodStockQty
+                                )
+                                || seafoodStockQty < 0
+                                || seafoodStockQty > 999999
+                            ) {
+                                layer.msg(
+                                    '鲜鱼库存必须在0到999999之间'
+                                );
+                                return false;
+                            }
+
+                            var seafoodUnits =
+                                seafoodStockQty
+                                / seafoodStep;
+
+                            if (
+                                Math.abs(
+                                    seafoodUnits
+                                    - Math.round(seafoodUnits)
+                                ) > 0.0000001
+                            ) {
+                                if (
+                                    seafoodSaleMode
+                                    === 'half_jin'
+                                ) {
+                                    layer.msg(
+                                        '半斤商品库存必须按0.5递增'
+                                    );
+                                } else if (
+                                    seafoodSaleMode
+                                    === 'piece'
+                                ) {
+                                    layer.msg(
+                                        '按条商品库存必须是整数条'
+                                    );
+                                } else {
+                                    layer.msg(
+                                        '整斤商品库存必须是整数斤'
+                                    );
+                                }
+
+                                return false;
+                            }
+
+                            if (
+                                !Number.isFinite(
+                                    seafoodMemberPrice
+                                )
+                                || seafoodMemberPrice < 0
+                                || seafoodMemberPrice > 999999
+                            ) {
+                                layer.msg(
+                                    '请输入正确的会员价'
+                                );
+                                return false;
+                            }
+
+                            if (
+                                !Number.isFinite(
+                                    seafoodNonMemberPrice
+                                )
+                                || seafoodNonMemberPrice < 0
+                                || seafoodNonMemberPrice > 999999
+                            ) {
+                                layer.msg(
+                                    '请输入正确的非会员价'
+                                );
+                                return false;
+                            }
+
+                            if (
+                                seafoodNonMemberPrice
+                                < seafoodMemberPrice
+                            ) {
+                                layer.msg(
+                                    '非会员价不能低于会员价'
+                                );
+                                return false;
+                            }
+
+                            if (
+                                !defaultProduct
+                                || !defaultProduct.sn
+                            ) {
+                                layer.msg(
+                                    '未找到默认货品，无法创建鲜鱼设置'
+                                );
+                                return false;
+                            }
+
+                            goods.unit = seafoodUnit;
+
+                            defaultProduct.stock =
+                                Math.ceil(
+                                    Math.max(
+                                        0,
+                                        seafoodStockQty
+                                    )
+                                );
+
+                            defaultProduct.price =
+                                seafoodMemberPrice;
+
+                            defaultProduct.mktprice =
+                                seafoodNonMemberPrice;
+                        }
+
+                        if (debug) {
+                            console.log(field);
+                            console.log({
+                                seafoodEnabled:
+                                    seafoodEnabled,
+                                seafoodSaleMode:
+                                    seafoodSaleMode,
+                                seafoodStockQty:
+                                    seafoodStockQty,
+                                defaultProduct:
+                                    defaultProduct
+                            });
+                        }
+
+                        function finishCreate(message) {
+                            layer.msg(
+                                message,
+                                { time: 1000 },
+                                function () {
+                                    location.hash =
+                                        '/good/goods/';
+                                }
+                            );
+                        }
+
+                        coreHelper.Post(
+                            "Api/CoreCmsGoods/DoCreate",
+                            {
+                                goods: goods,
+                                products: products,
+                                gradePrice: gradePrice,
+                                goodsCategoryExtendIds:
+                                    field.goodsCategoryExtendIds
+                            },
+                            function (e) {
+                                console.log(e);
+
+                                if (e.code !== 0) {
+                                    layer.msg(e.msg);
+                                    return;
+                                }
+
+                                if (!seafoodEnabled) {
+                                    finishCreate(e.msg);
+                                    return;
+                                }
+
+                                coreHelper.Post(
+                                    "Api/SeafoodProductConfig/SaveForNewProduct",
+                                    {
+                                        productSn:
+                                            defaultProduct.sn,
+                                        enabled: true,
+                                        saleMode:
+                                            seafoodSaleMode,
+                                        stockQty:
+                                            seafoodStockQty
+                                    },
+                                    function (seafoodResult) {
+                                        console.log(
+                                            seafoodResult
+                                        );
+
+                                        if (
+                                            seafoodResult.code
+                                            === 0
+                                        ) {
+                                            finishCreate(
+                                                '商品及鲜鱼售卖设置创建成功'
+                                            );
+                                            return;
+                                        }
+
+                                        layer.alert(
+                                            '商品已经创建成功，但鲜鱼售卖设置保存失败：'
+                                            + seafoodResult.msg
+                                            + '。请进入商品编辑页补充设置，避免重复创建商品。',
+                                            {
+                                                icon: 2,
+                                                title:
+                                                    '鲜鱼设置未保存'
+                                            },
+                                            function (
+                                                alertIndex
+                                            ) {
+                                                layer.close(
+                                                    alertIndex
+                                                );
+
+                                                location.hash =
+                                                    '/good/goods/';
+                                            }
+                                        );
+                                    }
+                                );
+                            }
+                        );
                     });
 
                 form.render();

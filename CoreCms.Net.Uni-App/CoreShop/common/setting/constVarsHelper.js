@@ -3,13 +3,33 @@
  *  @version 1.0.0
  */
 
-//接口请求地址，如果需要不部署接口端的情况下测试uni-app，可以直接替换为官方测试接口：https://api.demo.coreshop.cn
-export const apiBaseUrl = 'https://api.demo.coreshop.cn';
-//项目静态资源请求地址，如果使用官方的静态文件地址可以直接替换为：https://files.cdn.coreshop.cn
-export const apiFilesUrl = 'https://files.cdn.coreshop.cn';
+// 开发H5直连本机WebApi。
+// 正式H5使用当前访问站点作为API根地址，
+// 由生产反向代理把 /api 请求转发给WebApi。
+let apiBaseUrl = 'http://127.0.0.1:2015';
 
 // #ifdef H5
-export const baseUrl = process.env.NODE_ENV === 'development' ? window.location.origin + '/' : apiBaseUrl
+const h5Host = window.location.hostname;
+const isLocalH5 =
+    h5Host === 'localhost'
+    || h5Host === '127.0.0.1';
+
+if (!isLocalH5) {
+    apiBaseUrl = window.location.origin;
+}
+// #endif
+
+export { apiBaseUrl };
+
+// 本地上传图片由Admin静态目录提供。
+// 正式鲜鱼图片由Catalog按照Admin AppUrl返回。
+export const apiFilesUrl = 'http://127.0.0.1:1987';
+
+// #ifdef H5
+export const baseUrl =
+    process.env.NODE_ENV === 'development'
+        ? window.location.origin + '/'
+        : apiBaseUrl
 // #endif
 
 export const paymentType = {

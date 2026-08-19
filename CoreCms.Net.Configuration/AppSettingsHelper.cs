@@ -13,7 +13,7 @@ using SqlSugar.Extensions;
 namespace CoreCms.Net.Configuration
 {
     /// <summary>
-    /// »ñÈ¡AppsettingsÅäÖÃĞÅÏ¢
+    /// è·å–Appsettingsé…ç½®ä¿¡æ¯
     /// </summary>
     public class AppSettingsHelper
     {
@@ -22,14 +22,18 @@ namespace CoreCms.Net.Configuration
         public AppSettingsHelper(string contentPath)
         {
             string Path = "appsettings.json";
-            Configuration = new ConfigurationBuilder().SetBasePath(contentPath).Add(new JsonConfigurationSource { Path = Path, Optional = false, ReloadOnChange = true }).Build();
+            Configuration = new ConfigurationBuilder()
+                .SetBasePath(contentPath)
+                .Add(new JsonConfigurationSource { Path = Path, Optional = false, ReloadOnChange = true })
+                .AddEnvironmentVariables()
+                .Build();
         }
 
         /// <summary>
-        /// ·â×°Òª²Ù×÷µÄ×Ö·û
+        /// å°è£…è¦æ“ä½œçš„å­—ç¬¦
         /// AppSettingsHelper.GetContent(new string[] { "JwtConfig", "SecretKey" });
         /// </summary>
-        /// <param name="sections">½ÚµãÅäÖÃ</param>
+        /// <param name="sections">èŠ‚ç‚¹é…ç½®</param>
         /// <returns></returns>
         public static string GetContent(params string[] sections)
         {
@@ -50,20 +54,20 @@ namespace CoreCms.Net.Configuration
 
 
         /// <summary>
-        /// »ñÈ¡µçÄÔ MAC£¨ÎïÀí£© µØÖ·
+        /// è·å–ç”µè„‘ MACï¼ˆç‰©ç†ï¼‰ åœ°å€
         /// </summary>
-        /// <param name="needToken">ÊÇ·ñÖ»ÊÇÎªÁËÌ×È¡keyÉú³ÉÒ»¸ö²»Í¬²¿Êğ»·¾³²»Í¬µÄĞòÁĞ´®</param>
+        /// <param name="needToken">æ˜¯å¦åªæ˜¯ä¸ºäº†å¥—å–keyç”Ÿæˆä¸€ä¸ªä¸åŒéƒ¨ç½²ç¯å¢ƒä¸åŒçš„åºåˆ—ä¸²</param>
         /// <returns></returns>
         public static string GetMACIp(bool needToken)
         {
-            //±¾µØ¼ÆËã»úÍøÂçÁ¬½ÓĞÅÏ¢
+            //æœ¬åœ°è®¡ç®—æœºç½‘ç»œè¿æ¥ä¿¡æ¯
             IPGlobalProperties computerProperties = IPGlobalProperties.GetIPGlobalProperties();
-            //»ñÈ¡±¾»úËùÓĞÍøÂçÁ¬½Ó
+            //è·å–æœ¬æœºæ‰€æœ‰ç½‘ç»œè¿æ¥
             NetworkInterface[] nics = NetworkInterface.GetAllNetworkInterfaces();
 
-            //»ñÈ¡±¾»úµçÄÔÃû
+            //è·å–æœ¬æœºç”µè„‘å
             var HostName = computerProperties.HostName;
-            //»ñÈ¡ÓòÃû
+            //è·å–åŸŸå
             var DomainName = computerProperties.DomainName;
 
             if (nics == null || nics.Length < 1)
@@ -78,7 +82,7 @@ namespace CoreCms.Net.Configuration
 
                 var adapterDescription = adapter.Description;
                 var NetworkInterfaceType = adapter.NetworkInterfaceType;
-                if (adapterName == "±¾µØÁ¬½Ó" || needToken)
+                if (adapterName == "æœ¬åœ°è¿æ¥" || needToken)
                 {
                     PhysicalAddress address = adapter.GetPhysicalAddress();
                     byte[] bytes = address.GetAddressBytes();
@@ -99,15 +103,15 @@ namespace CoreCms.Net.Configuration
         }
 
         /// <summary>
-        /// »ñÈ¡µçÄÔ¼ÆËã»úÃû
+        /// è·å–ç”µè„‘è®¡ç®—æœºå
         /// </summary>
         /// <returns></returns>
         public static string GetHostName()
         {
-            //±¾µØ¼ÆËã»úÍøÂçÁ¬½ÓĞÅÏ¢
+            //æœ¬åœ°è®¡ç®—æœºç½‘ç»œè¿æ¥ä¿¡æ¯
             IPGlobalProperties computerProperties = IPGlobalProperties.GetIPGlobalProperties();
 
-            //»ñÈ¡±¾»úµçÄÔÃû
+            //è·å–æœ¬æœºç”µè„‘å
             var hostName = computerProperties.HostName;
 
             return !string.IsNullOrEmpty(hostName) ? hostName : "CoreShop.Professional";
@@ -118,25 +122,25 @@ namespace CoreCms.Net.Configuration
 
 
         /// <summary>
-        /// ×ªMD5
+        /// è½¬MD5
         /// </summary>
         /// <param name="str"></param>
         /// <returns></returns>
         public static string GetMachineRandomKey(string str)
         {
             MD5 md5 = MD5.Create();
-            // ½«×Ö·û´®×ª»»³É×Ö½ÚÊı×é
+            // å°†å­—ç¬¦ä¸²è½¬æ¢æˆå­—èŠ‚æ•°ç»„
             byte[] byteOld = Encoding.UTF8.GetBytes(str);
-            // µ÷ÓÃ¼ÓÃÜ·½·¨
+            // è°ƒç”¨åŠ å¯†æ–¹æ³•
             byte[] byteNew = md5.ComputeHash(byteOld);
-            // ½«¼ÓÃÜ½á¹û×ª»»Îª×Ö·û´®
+            // å°†åŠ å¯†ç»“æœè½¬æ¢ä¸ºå­—ç¬¦ä¸²
             StringBuilder sb = new StringBuilder();
             foreach (byte b in byteNew)
             {
-                // ½«×Ö½Ú×ª»»³É16½øÖÆ±íÊ¾µÄ×Ö·û´®£¬
+                // å°†å­—èŠ‚è½¬æ¢æˆ16è¿›åˆ¶è¡¨ç¤ºçš„å­—ç¬¦ä¸²ï¼Œ
                 sb.Append(b.ToString("x2"));
             }
-            // ·µ»Ø¼ÓÃÜµÄ×Ö·û´®
+            // è¿”å›åŠ å¯†çš„å­—ç¬¦ä¸²
             return sb.ToString();
         }
 
