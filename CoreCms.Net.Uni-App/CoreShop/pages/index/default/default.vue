@@ -68,11 +68,11 @@
 
                     <view class="stock-line">
                         <view class="stock-text" :class="{ danger: item.availableStock <= 3 }">
-                            剩余 <text class="stock-number">{{ item.availableStock }}</text>{{ item.unit }}
+                            剩余 <text class="stock-number">{{ formatQuantity(item.availableStock) }}</text>{{ item.unit }}
                         </view>
                         <view class="stepper" :class="{ disabled: item.availableStock <= 0 }">
                             <view class="step-btn" @click.stop="decrease(item)">−</view>
-                            <view class="step-value">{{ item.qty }}{{ item.unit }}</view>
+                            <view class="step-value">{{ formatQuantity(item.qty) }}{{ item.unit }}</view>
                             <view class="step-btn plus" @click.stop="increase(item)">＋</view>
                         </view>
                     </view>
@@ -105,7 +105,7 @@
                 <view class="selected-box">
                     <view class="selected-row" v-for="item in selectedItems" :key="item.productId">
                         <view class="selected-name">{{ item.name }}</view>
-                        <view class="selected-qty">{{ item.qty }}{{ item.unit }} · ¥{{ (Number(item.price) * item.qty).toFixed(2) }}</view>
+                        <view class="selected-qty">{{ formatQuantity(item.qty) }}{{ item.unit }} · ¥{{ (Number(item.price) * item.qty).toFixed(2) }}</view>
                     </view>
                     <view class="selected-total">合计：{{ selectedQuantityText }}　预计 ¥{{ selectedAmount }}</view>
                 </view>
@@ -169,10 +169,17 @@
                 return amount.toFixed(2);
             },
             selectedQuantityText() {
-                if (this.selectedItems.length === 0) return '0斤';
-                const units = [...new Set(this.selectedItems.map(item => item.unit || '斤'))];
-                const total = this.selectedItems.reduce((sum, item) => sum + item.qty, 0);
-                return units.length === 1 ? `${total}${units[0]}` : `${total}份`;
+                if (this.selectedItems.length === 0) return '0';
+
+                const totals = {};
+                this.selectedItems.forEach(item => {
+                    const unit = item.unit || '斤';
+                    totals[unit] = (totals[unit] || 0) + Number(item.qty || 0);
+                });
+
+                return Object.keys(totals)
+                    .map(unit => `${this.formatQuantity(totals[unit])}${unit}`)
+                    .join(' + ');
             }
         },
         onLoad() {
@@ -215,6 +222,11 @@
                     this.fishList = res.data.map(item => {
                         const availableStock = Math.max(0, Number(item.availableStock || 0));
                         const previousQty = preserveSelection ? Number(oldQty[item.id] || 0) : 0;
+                        const saleStepRaw = Number(item.saleStep || 1);
+                        const saleStep = saleStepRaw > 0 ? saleStepRaw : 1;
+                        const cappedQty = Math.min(previousQty, availableStock);
+                        const stepCount = Math.floor((cappedQty + 0.0000001) / saleStep);
+                        const qty = Number((stepCount * saleStep).toFixed(4));
 
                         return {
                             id: Number(item.id || 0),
@@ -225,8 +237,10 @@
                             price: Number(item.price || 0),
                             mktprice: Number(item.mktprice || 0),
                             productId: Number(item.productId || 0),
+                            saleMode: item.saleMode || 'whole_jin',
+                            saleStep,
                             availableStock,
-                            qty: Math.min(previousQty, availableStock)
+                            qty
                         };
                     }).filter(item => item.id > 0 && item.productId > 0);
 
@@ -247,14 +261,39 @@
             },
             increase(item) {
                 if (!item.productId || item.availableStock <= 0) return;
-                if (item.qty >= item.availableStock) {
-                    this.$u.toast(`当前最多可订${item.availableStock}${item.unit}`);
+
+                const step = Number(item.saleStep || 1);
+                const next = this.normalizeQuantity(Number(item.qty || 0) + step);
+
+                if (next > Number(item.availableStock) + 0.0000001) {
+                    this.$u.toast(
+                        `当前最多可订${this.formatQuantity(item.availableStock)}${item.unit}`
+                    );
                     return;
                 }
-                item.qty += 1;
+
+                item.qty = next;
             },
             decrease(item) {
-                if (item.qty > 0) item.qty -= 1;
+                const step = Number(item.saleStep || 1);
+                const next = this.normalizeQuantity(Number(item.qty || 0) - step);
+                item.qty = next > 0 ? next : 0;
+            },
+            normalizeQuantity(value) {
+                const num = Number(value || 0);
+                return Number(num.toFixed(4));
+            },
+            formatQuantity(value) {
+                const num = Number(value || 0);
+
+                if (Number.isInteger(num)) {
+                    return String(num);
+                }
+
+                return num
+                    .toFixed(4)
+                    .replace(/0+$/, '')
+                    .replace(/\.$/, '');
             },
             formatPrice(value) {
                 const num = Number(value || 0);

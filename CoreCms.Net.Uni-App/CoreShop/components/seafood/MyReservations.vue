@@ -73,7 +73,7 @@
                             <view class="item-price">单价 ¥{{ formatMoney(item.unitPrice) }}/{{ item.unit || '斤' }}</view>
                         </view>
                         <view class="item-right">
-                            <view class="item-qty">{{ item.quantity }}{{ item.unit || '斤' }}</view>
+                            <view class="item-qty">{{ formatQuantity(item.quantity) }}{{ item.unit || '斤' }}</view>
                             <view class="item-amount">¥{{ formatMoney(item.amount) }}</view>
                         </view>
                     </view>
@@ -204,6 +204,18 @@
             },
             deliveryText(deliveryType) {
                 return deliveryType === 'shipping' ? '邮寄' : '到店取';
+            },
+            formatQuantity(value) {
+                const num = Number(value || 0);
+
+                if (Number.isInteger(num)) {
+                    return String(num);
+                }
+
+                return num
+                    .toFixed(4)
+                    .replace(/0+$/, '')
+                    .replace(/\.$/, '');
             },
             formatMoney(value) {
                 return Number(value || 0).toFixed(2);
