@@ -11,7 +11,7 @@ namespace CoreCms.Net.Web.WebApi.Controllers
 {
     /// <summary>
     /// 鲜鱼接龙预订接口。
-    /// 不要求商城登录，不处理在线支付；创建预订时原子冻结可售库存。
+    /// 不要求商城登录，不处理在线支付；创建预订时原子冻结鲜鱼专属库存。
     /// </summary>
     [Route("api/[controller]/[action]")]
     [ApiController]
@@ -70,7 +70,7 @@ namespace CoreCms.Net.Web.WebApi.Controllers
 
             var sourceItems = entity.items ?? new List<SeafoodReservationCreateItem>();
             var items = sourceItems
-                .Where(x => x != null && x.productId > 0 && x.quantity > 0)
+                .Where(x => x != null && x.productId > 0 && x.quantity > 0m)
                 .GroupBy(x => x.productId)
                 .Select(g => new SeafoodReservationCreateItem
                 {
@@ -84,7 +84,7 @@ namespace CoreCms.Net.Web.WebApi.Controllers
                 jm.msg = "请选择要预订的鱼货";
                 return jm;
             }
-            if (items.Count > 20 || items.Any(x => x.quantity > 999))
+            if (items.Count > 20 || items.Any(x => x.quantity > 999m))
             {
                 jm.msg = "本次预订数量异常，请重新选择";
                 return jm;
@@ -143,15 +143,38 @@ namespace CoreCms.Net.Web.WebApi.Controllers
                         throw new InvalidOperationException("有鱼货已下架，请刷新后重新选择");
                     }
 
-                    // 条件 UPDATE 在数据库端一次完成“检查可售库存 + 冻结库存”，
-                    // 多人同时提交时只有仍满足 stock-freezeStock >= quantity 的请求能成功。
+                    var config = _db.Queryable<SeafoodProductConfigRecord>()
+                        .Where(c => c.productId == requested.productId && c.enabled == true)
+                        .First();
+
+                    if (config == null)
+                    {
+                        throw new InvalidOperationException($"{goods.name}今日未开放预订，请刷新后重新选择");
+                    }
+
+                    if (!SeafoodSaleModes.IsSupported(config.saleMode))
+                    {
+                        throw new InvalidOperationException($"{goods.name}售卖规则异常，请联系工作人员");
+                    }
+
+                    var saleStep = SeafoodSaleModes.GetStep(config.saleMode);
+                    if (!IsValidQuantity(requested.quantity, saleStep))
+                    {
+                        var stepText = saleStep == 0.5m ? "0.5斤" : SeafoodSaleModes.GetUnit(config.saleMode) == "条" ? "1条" : "1斤";
+                        throw new InvalidOperationException($"{goods.name}请按{stepText}递增购买");
+                    }
+
+                    // 在鲜鱼专属库存表中原子完成“检查可售库存 + 冻结库存”。
+                    // CoreShop 原 stock/freezeStock 不再作为鲜鱼小数库存的事实源。
                     var affected = _db.Ado.ExecuteCommand(
-                        "UPDATE CoreCmsProducts " +
-                        "SET freezeStock = freezeStock + @qty " +
-                        "WHERE id = @productId AND isDel = 0 AND marketable = 1 " +
-                        "AND (stock - freezeStock) >= @qty",
+                        "UPDATE SeafoodProductConfig " +
+                        "SET freezeQty = freezeQty + @qty, updatedAt = @now " +
+                        "WHERE productId = @productId AND enabled = 1 AND saleMode = @saleMode " +
+                        "AND (stockQty - freezeQty) >= @qty",
                         new SugarParameter("@qty", requested.quantity),
-                        new SugarParameter("@productId", requested.productId));
+                        new SugarParameter("@now", now),
+                        new SugarParameter("@productId", requested.productId),
+                        new SugarParameter("@saleMode", config.saleMode));
 
                     if (affected != 1)
                     {
@@ -167,7 +190,7 @@ namespace CoreCms.Net.Web.WebApi.Controllers
                         productId = product.id,
                         goodsId = Convert.ToInt32(product.goodsId),
                         goodsName = goods.name ?? string.Empty,
-                        unit = string.IsNullOrEmpty(goods.unit) ? "斤" : goods.unit,
+                        unit = SeafoodSaleModes.GetUnit(config.saleMode),
                         quantity = requested.quantity,
                         unitPrice = unitPrice,
                         amount = lineAmount,
@@ -287,6 +310,16 @@ namespace CoreCms.Net.Web.WebApi.Controllers
             return jm;
         }
 
+        private static bool IsValidQuantity(decimal quantity, decimal saleStep)
+        {
+            if (quantity <= 0m || saleStep <= 0m)
+            {
+                return false;
+            }
+
+            return quantity % saleStep == 0m;
+        }
+
         private object BuildReservationResult(SeafoodReservationRecord reservation)
         {
             return new
@@ -301,6 +334,7 @@ namespace CoreCms.Net.Web.WebApi.Controllers
 
         private void EnsureTables()
         {
+            _db.CodeFirst.InitTables<SeafoodProductConfigRecord>();
             _db.CodeFirst.InitTables<SeafoodReservationRecord>();
             _db.CodeFirst.InitTables<SeafoodReservationItemRecord>();
         }
@@ -319,7 +353,9 @@ namespace CoreCms.Net.Web.WebApi.Controllers
     public class SeafoodReservationCreateItem
     {
         public int productId { get; set; }
-        public int quantity { get; set; }
+
+        [SugarColumn(ColumnDataType = "decimal(18,4)")]
+        public decimal quantity { get; set; }
     }
 
     public class SeafoodReservationLookupRequest
@@ -375,7 +411,9 @@ namespace CoreCms.Net.Web.WebApi.Controllers
         [SugarColumn(Length = 30)]
         public string unit { get; set; }
 
-        public int quantity { get; set; }
+        [SugarColumn(ColumnDataType = "decimal(18,4)")]
+        public decimal quantity { get; set; }
+
         public decimal unitPrice { get; set; }
         public decimal amount { get; set; }
 
