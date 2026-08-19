@@ -342,16 +342,8 @@
                     return;
                 }
 
-                const recent = history.slice(0, 5).map((item, index) => {
-                    const method = item.deliveryType === 'shipping' ? '邮寄' : '到店取';
-                    return `${index + 1}. ${item.reservationNo} · ${method} · ¥${Number(item.totalAmount || 0).toFixed(2)}`;
-                }).join('\n');
-
-                uni.showModal({
-                    title: '最近预订',
-                    content: recent,
-                    showCancel: false,
-                    confirmText: '知道了'
+                uni.navigateTo({
+                    url: '/pages/member/order/index/index?seafood=1'
                 });
             }
         }
