@@ -245,6 +245,59 @@ namespace CoreCms.Net.Web.Admin.Controllers
             });
         }
 
+        /// <summary>
+        /// 新商品创建成功后，使用本次提交的唯一默认SKU货号
+        /// 精确定位商品，再保存鲜鱼设置。
+        /// 不使用“最新商品”之类存在并发风险的定位方式。
+        /// </summary>
+        [HttpPost]
+        public AdminUiCallBack SaveForNewProduct(
+            [FromBody] SeafoodProductConfigCreateRequest entity)
+        {
+            if (
+                entity == null
+                || string.IsNullOrWhiteSpace(entity.productSn)
+            )
+            {
+                return Fail("新商品默认货品货号不能为空");
+            }
+
+            var productSn = entity.productSn.Trim();
+
+            var products = _db.Queryable<CoreCmsProducts>()
+                .Where(p =>
+                    p.sn == productSn
+                    && p.isDel == false
+                    && p.isDefalut == true)
+                .OrderBy(p => p.id, OrderByType.Asc)
+                .Take(2)
+                .ToList();
+
+            if (products.Count == 0)
+            {
+                return Fail(
+                    "商品已经创建，但未找到本次创建的默认货品"
+                );
+            }
+
+            if (products.Count != 1)
+            {
+                return Fail(
+                    "默认货品货号定位结果异常，为安全起见未保存鲜鱼设置"
+                );
+            }
+
+            var product = products[0];
+
+            return Save(new SeafoodProductConfigSaveRequest
+            {
+                goodsId = product.goodsId,
+                enabled = entity.enabled,
+                saleMode = entity.saleMode,
+                stockQty = entity.stockQty
+            });
+        }
+
         private static string Normalize(string value)
         {
             return (value ?? string.Empty).Trim().ToLowerInvariant();
@@ -291,6 +344,14 @@ namespace CoreCms.Net.Web.Admin.Controllers
                 msg = message
             };
         }
+    }
+
+    public class SeafoodProductConfigCreateRequest
+    {
+        public string productSn { get; set; }
+        public bool enabled { get; set; }
+        public string saleMode { get; set; }
+        public decimal stockQty { get; set; }
     }
 
     public class SeafoodProductConfigSaveRequest
