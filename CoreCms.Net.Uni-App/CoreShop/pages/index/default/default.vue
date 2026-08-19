@@ -203,47 +203,44 @@
                 }
 
                 try {
-                    const listRes = await this.$u.api.goodsList({
-                        where: JSON.stringify({}),
-                        limit: 50,
-                        page: 1,
-                        order: 'sort asc'
+                    const res = await this.$u.post('/Api/SeafoodCatalog/List', {}, {
+                        method: 'seafoodCatalog.list',
+                        needToken: false
                     });
 
-                    if (!listRes.status || !listRes.data || !listRes.data.list) {
-                        throw new Error(listRes.msg || '鱼货读取失败');
+                    if (!res || !res.status || !Array.isArray(res.data)) {
+                        throw new Error((res && res.msg) || '鱼货读取失败');
                     }
 
-                    const baseList = Array.from(listRes.data.list);
-                    const detailTasks = baseList.map(item => this.$u.api.goodsDetail({ id: item.id })
-                        .then(res => ({ item, res }))
-                        .catch(() => ({ item, res: null })));
-                    const details = await Promise.all(detailTasks);
-
-                    this.fishList = details.map(({ item, res }) => {
-                        const detail = res && res.status && res.data ? res.data : item;
-                        const product = detail.product || {};
-                        const availableStock = Math.max(0, Number(product.stock !== undefined ? product.stock : detail.stock || 0));
+                    this.fishList = res.data.map(item => {
+                        const availableStock = Math.max(0, Number(item.availableStock || 0));
                         const previousQty = preserveSelection ? Number(oldQty[item.id] || 0) : 0;
 
                         return {
-                            id: detail.id || item.id,
-                            name: detail.name || item.name || '今日鱼货',
-                            brief: detail.brief || item.brief || '',
-                            image: detail.image || item.image || '/static/images/common/empty-banner.png',
-                            unit: detail.unit || '斤',
-                            price: Number(product.price !== undefined ? product.price : detail.price || 0),
-                            mktprice: Number(product.mktprice !== undefined ? product.mktprice : detail.mktprice || 0),
-                            productId: Number(product.id || 0),
+                            id: Number(item.id || 0),
+                            name: item.name || '今日鱼货',
+                            brief: item.brief || '',
+                            image: item.image || '/static/images/common/empty-banner.png',
+                            unit: item.unit || '斤',
+                            price: Number(item.price || 0),
+                            mktprice: Number(item.mktprice || 0),
+                            productId: Number(item.productId || 0),
                             availableStock,
                             qty: Math.min(previousQty, availableStock)
                         };
-                    }).filter(item => item.productId > 0);
+                    }).filter(item => item.id > 0 && item.productId > 0);
 
                     this.loadedOnce = true;
-                    if (showToast) this.$u.toast('库存已更新');
+
+                    if (showToast) {
+                        this.$u.toast('库存已更新');
+                    }
                 } catch (error) {
-                    this.$u.toast(error && error.message ? error.message : '鱼货读取失败，请稍后重试');
+                    this.$u.toast(
+                        error && error.message
+                            ? error.message
+                            : '鱼货读取失败，请稍后重试'
+                    );
                 } finally {
                     this.loading = false;
                 }
