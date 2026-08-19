@@ -20,6 +20,16 @@
     .seafood-detail-items { margin-top: 8px; border: 1px solid #eee; border-radius: 4px; overflow: hidden; }
     .seafood-detail-item { padding: 10px 12px; border-bottom: 1px solid #eee; }
     .seafood-detail-item:last-child { border-bottom: 0; }
+    .seafood-quick-edit-btn { float: right; margin: 6px 15px 0 0; }
+    .seafood-quick-wrap { padding: 12px 16px 20px 16px; }
+    .seafood-quick-table { min-width: 930px; }
+    .seafood-quick-table th { white-space: nowrap; }
+    .seafood-quick-table td { vertical-align: middle; }
+    .seafood-quick-name { min-width: 130px; font-weight: bold; }
+    .seafood-quick-stock { width: 92px; }
+    .seafood-quick-price { width: 92px; }
+    .seafood-quick-freeze { color: #888; white-space: nowrap; }
+    .seafood-quick-unit { display: inline-block; min-width: 20px; margin-left: 5px; }
 </style>
 
 <script type="text/html" template lay-type="Post" lay-url="{{ layui.setter.apiUrl }}Api/SeafoodReservationAdmin/GetIndex" lay-done="layui.data.done(d);">
@@ -29,6 +39,9 @@
         <span class="seafood-reservation-stat confirmed">已确认<strong id="seafood-count-confirmed">{{ d.data.confirmed }}</strong></span>
         <span class="seafood-reservation-stat completed">已完成<strong id="seafood-count-completed">{{ d.data.completed }}</strong></span>
         <span class="seafood-reservation-stat cancelled">已取消<strong id="seafood-count-cancelled">{{ d.data.cancelled }}</strong></span>
+        <button type="button" class="layui-btn layui-btn-normal seafood-quick-edit-btn" id="seafood-quick-edit">
+            <i class="layui-icon layui-icon-set"></i>今日鲜鱼设置
+        </button>
     </div>
 </script>
 
@@ -136,6 +149,256 @@
                     $('#seafood-count-cancelled').text(e.data.cancelled);
                 });
             }
+
+            function seafoodModeText(mode) {
+                if (mode === 'half_jin') return '半斤';
+                if (mode === 'piece') return '按条';
+                return '整斤';
+            }
+
+            function seafoodModeUnit(mode) {
+                return mode === 'piece' ? '条' : '斤';
+            }
+
+            function seafoodModeStep(mode) {
+                return mode === 'half_jin' ? 0.5 : 1;
+            }
+
+            function formatSeafoodNumber(value) {
+                var n = Number(value || 0);
+                if (!isFinite(n)) return '0';
+                if (Math.abs(n - Math.round(n)) < 0.000001) {
+                    return String(Math.round(n));
+                }
+                return n.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+            }
+
+            function openSeafoodQuickEdit() {
+                coreHelper.Post(
+                    'Api/SeafoodProductConfig/GetQuickList',
+                    {},
+                    function (e) {
+                        if (e.code !== 0 || !e.data) {
+                            layer.msg(e.msg || '获取今日鲜鱼设置失败');
+                            return;
+                        }
+
+                        var rows = e.data || [];
+                        var html = ''
+                            + '<div class="seafood-quick-wrap">'
+                            + '<div style="margin-bottom:10px;color:#777;">'
+                            + '这里仅修改今日鲜鱼的售卖方式、库存和价格；'
+                            + '不会要求重新上传图片、填写详情或修改货号。'
+                            + '</div>'
+                            + '<table class="layui-table seafood-quick-table">'
+                            + '<thead><tr>'
+                            + '<th>商品</th>'
+                            + '<th style="width:90px;">参与</th>'
+                            + '<th style="width:120px;">售卖方式</th>'
+                            + '<th style="width:145px;">今日库存</th>'
+                            + '<th style="width:120px;">会员价</th>'
+                            + '<th style="width:120px;">非会员价</th>'
+                            + '<th style="width:140px;">冻结 / 可售</th>'
+                            + '<th style="width:80px;">操作</th>'
+                            + '</tr></thead><tbody>';
+
+                        layui.each(rows, function (_, item) {
+                            var mode = item.saleMode || 'whole_jin';
+                            var unit = item.unit || seafoodModeUnit(mode);
+                            var step = seafoodModeStep(mode);
+
+                            html += ''
+                                + '<tr class="seafood-quick-row" data-goods-id="' + Number(item.goodsId) + '">'
+                                + '<td class="seafood-quick-name">' + escapeHtml(item.name) + '</td>'
+                                + '<td>'
+                                + '<input type="checkbox" class="seafood-quick-enabled" '
+                                + (item.enabled ? 'checked ' : '')
+                                + '>'
+                                + '</td>'
+                                + '<td>'
+                                + '<select class="layui-input seafood-quick-mode">'
+                                + '<option value="whole_jin"' + (mode === 'whole_jin' ? ' selected' : '') + '>整斤</option>'
+                                + '<option value="half_jin"' + (mode === 'half_jin' ? ' selected' : '') + '>半斤</option>'
+                                + '<option value="piece"' + (mode === 'piece' ? ' selected' : '') + '>按条</option>'
+                                + '</select>'
+                                + '</td>'
+                                + '<td>'
+                                + '<input type="number" min="0" step="' + step + '" '
+                                + 'class="layui-input seafood-quick-stock" '
+                                + 'value="' + escapeHtml(formatSeafoodNumber(item.stockQty)) + '">'
+                                + '<span class="seafood-quick-unit">' + escapeHtml(unit) + '</span>'
+                                + '</td>'
+                                + '<td>'
+                                + '<input type="number" min="0" step="0.01" '
+                                + 'class="layui-input seafood-quick-price" '
+                                + 'value="' + Number(item.price || 0).toFixed(2) + '">'
+                                + '</td>'
+                                + '<td>'
+                                + '<input type="number" min="0" step="0.01" '
+                                + 'class="layui-input seafood-quick-mktprice seafood-quick-price" '
+                                + 'value="' + Number(item.mktprice || 0).toFixed(2) + '">'
+                                + '</td>'
+                                + '<td class="seafood-quick-freeze">'
+                                + '冻结 <span class="seafood-quick-freeze-value">'
+                                + escapeHtml(formatSeafoodNumber(item.freezeQty))
+                                + '</span>' + escapeHtml(unit)
+                                + '<br>可售 <span class="seafood-quick-available-value">'
+                                + escapeHtml(formatSeafoodNumber(item.availableQty))
+                                + '</span>' + escapeHtml(unit)
+                                + '</td>'
+                                + '<td>'
+                                + '<button type="button" class="layui-btn layui-btn-xs seafood-quick-save">保存</button>'
+                                + '</td>'
+                                + '</tr>';
+                        });
+
+                        if (!rows.length) {
+                            html += '<tr><td colspan="8" style="text-align:center;color:#999;">暂无可设置的鲜鱼商品</td></tr>';
+                        }
+
+                        html += '</tbody></table></div>';
+
+                        layer.open({
+                            type: 1,
+                            title: '今日鲜鱼快速设置',
+                            area: ['1100px', '680px'],
+                            maxmin: true,
+                            shadeClose: false,
+                            content: html,
+                            success: function (layero) {
+                                layero.on(
+                                    'change',
+                                    '.seafood-quick-mode',
+                                    function () {
+                                        var row = $(this).closest('.seafood-quick-row');
+                                        var mode = $(this).val();
+                                        var unit = seafoodModeUnit(mode);
+                                        var step = seafoodModeStep(mode);
+
+                                        row.find('.seafood-quick-stock').attr('step', step);
+                                        row.find('.seafood-quick-unit').text(unit);
+
+                                        var freeze = row.find('.seafood-quick-freeze-value').text();
+                                        var available = row.find('.seafood-quick-available-value').text();
+
+                                        row.find('.seafood-quick-freeze').html(
+                                            '冻结 <span class="seafood-quick-freeze-value">'
+                                            + escapeHtml(freeze)
+                                            + '</span>' + escapeHtml(unit)
+                                            + '<br>可售 <span class="seafood-quick-available-value">'
+                                            + escapeHtml(available)
+                                            + '</span>' + escapeHtml(unit)
+                                        );
+                                    }
+                                );
+
+                                layero.on(
+                                    'click',
+                                    '.seafood-quick-save',
+                                    function () {
+                                        var button = $(this);
+                                        var row = button.closest('.seafood-quick-row');
+
+                                        var goodsId = Number(row.attr('data-goods-id'));
+                                        var enabled = row.find('.seafood-quick-enabled').prop('checked');
+                                        var saleMode = row.find('.seafood-quick-mode').val();
+                                        var stockQty = Number(row.find('.seafood-quick-stock').val());
+                                        var price = Number(row.find('.seafood-quick-price').first().val());
+                                        var mktprice = Number(row.find('.seafood-quick-mktprice').val());
+                                        var step = seafoodModeStep(saleMode);
+
+                                        if (!isFinite(stockQty) || stockQty < 0) {
+                                            layer.msg('请输入正确的今日库存');
+                                            return;
+                                        }
+
+                                        if (
+                                            Math.abs(
+                                                stockQty / step
+                                                - Math.round(stockQty / step)
+                                            ) > 0.000001
+                                        ) {
+                                            layer.msg(
+                                                saleMode === 'half_jin'
+                                                    ? '半斤商品库存必须按0.5递增'
+                                                    : saleMode === 'piece'
+                                                        ? '按条商品库存必须是整数条'
+                                                        : '整斤商品库存必须是整数斤'
+                                            );
+                                            return;
+                                        }
+
+                                        if (
+                                            !isFinite(price)
+                                            || price < 0
+                                            || !isFinite(mktprice)
+                                            || mktprice < 0
+                                        ) {
+                                            layer.msg('请输入正确的价格');
+                                            return;
+                                        }
+
+                                        if (mktprice < price) {
+                                            layer.msg('非会员价不能低于会员价');
+                                            return;
+                                        }
+
+                                        button.addClass('layui-btn-disabled');
+                                        button.prop('disabled', true);
+
+                                        coreHelper.Post(
+                                            'Api/SeafoodProductConfig/QuickSave',
+                                            {
+                                                goodsId: goodsId,
+                                                enabled: enabled,
+                                                saleMode: saleMode,
+                                                stockQty: stockQty,
+                                                price: price,
+                                                mktprice: mktprice
+                                            },
+                                            function (result) {
+                                                button.removeClass('layui-btn-disabled');
+                                                button.prop('disabled', false);
+
+                                                if (result.code !== 0 || !result.data) {
+                                                    layer.msg(
+                                                        result.msg || '保存失败'
+                                                    );
+                                                    return;
+                                                }
+
+                                                var unit = result.data.unit || seafoodModeUnit(saleMode);
+
+                                                row.find('.seafood-quick-stock').val(
+                                                    formatSeafoodNumber(result.data.stockQty)
+                                                );
+                                                row.find('.seafood-quick-unit').text(unit);
+                                                row.find('.seafood-quick-freeze-value').text(
+                                                    formatSeafoodNumber(result.data.freezeQty)
+                                                );
+                                                row.find('.seafood-quick-available-value').text(
+                                                    formatSeafoodNumber(result.data.availableQty)
+                                                );
+
+                                                layer.msg(
+                                                    escapeHtml(row.find('.seafood-quick-name').text())
+                                                    + ' 已保存'
+                                                );
+                                            }
+                                        );
+                                    }
+                                );
+                            }
+                        });
+                    }
+                );
+            }
+
+            $('#seafood-quick-edit')
+                .off('click.seafoodQuick')
+                .on('click.seafoodQuick', function () {
+                    openSeafoodQuickEdit();
+                });
 
             form.on('submit(LAY-app-SeafoodReservation-search)', function (data) {
                 table.reloadData('LAY-app-SeafoodReservation-tableBox', {
