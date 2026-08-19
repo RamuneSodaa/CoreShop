@@ -98,6 +98,14 @@
         },
         onLoad: function (option) {
             this.seafoodMode = !!(option && String(option.seafood || '') === '1');
+            const pageTitle = this.seafoodMode ? '我的预订' : '订单列表';
+            uni.setNavigationBarTitle({ title: pageTitle });
+            // #ifdef H5
+            if (typeof document !== 'undefined') {
+                document.title = pageTitle;
+            }
+            // #endif
+
             if (this.seafoodMode) {
                 return;
             }
