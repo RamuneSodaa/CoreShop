@@ -1,0 +1,246 @@
+<title>鲜鱼预订管理</title>
+
+<div class="layui-card layadmin-header">
+    <div class="layui-breadcrumb" lay-filter="breadcrumb">
+        <script type="text/html" template lay-done="layui.data.updateMainBreadcrumb();"></script>
+    </div>
+</div>
+
+<style>
+    .seafood-reservation-stats { padding: 12px 15px 4px 15px; background: #fff; }
+    .seafood-reservation-stat { display: inline-block; min-width: 108px; margin: 0 10px 8px 0; padding: 10px 14px; border: 1px solid #eee; border-radius: 4px; background: #fafafa; }
+    .seafood-reservation-stat strong { display: block; margin-top: 4px; font-size: 22px; color: #009688; }
+    .seafood-reservation-stat.pending strong { color: #ff9800; }
+    .seafood-reservation-stat.confirmed strong { color: #1e9fff; }
+    .seafood-reservation-stat.completed strong { color: #16b777; }
+    .seafood-reservation-stat.cancelled strong { color: #999; }
+    .seafood-detail-row { margin-bottom: 12px; line-height: 1.8; }
+    .seafood-detail-label { display: inline-block; width: 92px; color: #777; vertical-align: top; }
+    .seafood-detail-value { display: inline-block; max-width: 540px; word-break: break-all; }
+    .seafood-detail-items { margin-top: 8px; border: 1px solid #eee; border-radius: 4px; overflow: hidden; }
+    .seafood-detail-item { padding: 10px 12px; border-bottom: 1px solid #eee; }
+    .seafood-detail-item:last-child { border-bottom: 0; }
+</style>
+
+<script type="text/html" template lay-type="Post" lay-url="{{ layui.setter.apiUrl }}Api/SeafoodReservationAdmin/GetIndex" lay-done="layui.data.done(d);">
+    <div class="seafood-reservation-stats">
+        <span class="seafood-reservation-stat">全部预订<strong id="seafood-count-all">{{ d.data.all }}</strong></span>
+        <span class="seafood-reservation-stat pending">待处理<strong id="seafood-count-pending">{{ d.data.pending }}</strong></span>
+        <span class="seafood-reservation-stat confirmed">已确认<strong id="seafood-count-confirmed">{{ d.data.confirmed }}</strong></span>
+        <span class="seafood-reservation-stat completed">已完成<strong id="seafood-count-completed">{{ d.data.completed }}</strong></span>
+        <span class="seafood-reservation-stat cancelled">已取消<strong id="seafood-count-cancelled">{{ d.data.cancelled }}</strong></span>
+    </div>
+</script>
+
+<div class="table-body">
+    <table id="LAY-app-SeafoodReservation-tableBox" lay-filter="LAY-app-SeafoodReservation-tableBox"></table>
+</div>
+
+<script type="text/html" id="LAY-app-SeafoodReservation-toolbar">
+    <div class="layui-form coreshop-toolbar-search-form">
+        <div class="layui-form-item">
+            <div class="layui-inline">
+                <div class="layui-input-inline" style="width: 260px;">
+                    <input type="text" name="keyword" placeholder="预订号 / 顾客 / 联系方式" class="layui-input" lay-affix="clear">
+                </div>
+            </div>
+            <div class="layui-inline">
+                <div class="layui-input-inline">
+                    <select name="status">
+                        <option value="">全部状态</option>
+                        <option value="0">待处理</option>
+                        <option value="1">已确认</option>
+                        <option value="2">已完成</option>
+                        <option value="3">已取消</option>
+                    </select>
+                </div>
+            </div>
+            <div class="layui-inline">
+                <div class="layui-input-inline">
+                    <select name="deliveryType">
+                        <option value="">全部取货方式</option>
+                        <option value="pickup">到店取</option>
+                        <option value="shipping">邮寄</option>
+                    </select>
+                </div>
+            </div>
+            <div class="layui-inline">
+                <button class="layui-btn layui-btn-sm" lay-submit lay-filter="LAY-app-SeafoodReservation-search">
+                    <i class="layui-icon layui-icon-search"></i>筛选
+                </button>
+            </div>
+        </div>
+    </div>
+</script>
+
+<script type="text/html" id="LAY-app-SeafoodReservation-tableBox-bar">
+    <a class="layui-btn layui-btn-primary layui-btn-xs" lay-event="detail">详情</a>
+    {{# if(d.status === 0){ }}
+        <a class="layui-btn layui-btn-xs" lay-event="confirm">确认</a>
+        <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="cancel">取消</a>
+    {{# } else if(d.status === 1){ }}
+        <a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="complete">完成</a>
+        <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="cancel">取消</a>
+    {{# } }}
+</script>
+
+<script>
+    var seafoodReservationIndexData;
+    var seafoodReservationDebug = layui.setter.debug;
+
+    layui.data.done = function (d) {
+        if (seafoodReservationDebug) { console.log(d); }
+        seafoodReservationIndexData = d.data;
+
+        layui.use(['index', 'table', 'util', 'coreHelper'], function () {
+            var $ = layui.$
+                , table = layui.table
+                , form = layui.form
+                , coreHelper = layui.coreHelper;
+
+            form.render();
+
+            function escapeHtml(value) {
+                return $('<div/>').text(value == null ? '' : String(value)).html();
+            }
+
+            function statusText(status) {
+                if (status === 0) return '待处理';
+                if (status === 1) return '已确认';
+                if (status === 2) return '已完成';
+                if (status === 3) return '已取消';
+                return '未知';
+            }
+
+            function statusBadge(status) {
+                if (status === 0) return '<span class="layui-badge layui-bg-orange">待处理</span>';
+                if (status === 1) return '<span class="layui-badge layui-bg-blue">已确认</span>';
+                if (status === 2) return '<span class="layui-badge layui-bg-green">已完成</span>';
+                if (status === 3) return '<span class="layui-badge layui-bg-gray">已取消</span>';
+                return '<span class="layui-badge">未知</span>';
+            }
+
+            function deliveryText(deliveryType) {
+                if (deliveryType === 'pickup') return '到店取';
+                if (deliveryType === 'shipping') return '邮寄';
+                return deliveryType || '-';
+            }
+
+            function refreshStats() {
+                coreHelper.Post('Api/SeafoodReservationAdmin/GetIndex', {}, function (e) {
+                    if (e.code !== 0 || !e.data) return;
+                    $('#seafood-count-all').text(e.data.all);
+                    $('#seafood-count-pending').text(e.data.pending);
+                    $('#seafood-count-confirmed').text(e.data.confirmed);
+                    $('#seafood-count-completed').text(e.data.completed);
+                    $('#seafood-count-cancelled').text(e.data.cancelled);
+                });
+            }
+
+            form.on('submit(LAY-app-SeafoodReservation-search)', function (data) {
+                table.reloadData('LAY-app-SeafoodReservation-tableBox', {
+                    where: data.field,
+                    page: { curr: 1 }
+                });
+                return false;
+            });
+
+            table.render({
+                elem: '#LAY-app-SeafoodReservation-tableBox',
+                url: layui.setter.apiUrl + 'Api/SeafoodReservationAdmin/GetPageList',
+                method: 'POST',
+                toolbar: '#LAY-app-SeafoodReservation-toolbar',
+                defaultToolbar: ['filter', 'print', 'exports'],
+                height: 'full-245',
+                page: true,
+                limit: 30,
+                limits: [10, 20, 30, 50, 100],
+                text: { none: '暂无鲜鱼预订' },
+                cols: [[
+                    { field: 'createdAt', title: '时间', width: 155 },
+                    { field: 'reservationNo', title: '预订号', width: 225 },
+                    { field: 'customerName', title: '顾客', width: 120, templet: function (data) { return escapeHtml(data.customerName); } },
+                    { field: 'contact', title: '联系方式', width: 145, templet: function (data) { return escapeHtml(data.contact || '-'); } },
+                    { field: 'deliveryType', title: '取货方式', width: 95, templet: function (data) { return deliveryText(data.deliveryType); } },
+                    { field: 'goodsSummary', title: '鱼货', minWidth: 220, templet: function (data) { return escapeHtml(data.goodsSummary || '-'); } },
+                    { field: 'totalAmount', title: '金额', width: 105, templet: function (data) { return '¥' + Number(data.totalAmount || 0).toFixed(2); } },
+                    { field: 'status', title: '状态', width: 95, align: 'center', templet: function (data) { return statusBadge(data.status); } },
+                    { title: '操作', width: 190, align: 'center', fixed: 'right', toolbar: '#LAY-app-SeafoodReservation-tableBox-bar' }
+                ]]
+            });
+
+            table.on('rowDouble(LAY-app-SeafoodReservation-tableBox)', function (obj) {
+                showDetail(obj.data.id);
+            });
+
+            table.on('tool(LAY-app-SeafoodReservation-tableBox)', function (obj) {
+                if (obj.event === 'detail') {
+                    showDetail(obj.data.id);
+                } else if (obj.event === 'confirm') {
+                    changeStatus('Confirm', obj.data.id, '确认这笔预订吗？确认后仍会继续为顾客冻结库存。');
+                } else if (obj.event === 'cancel') {
+                    changeStatus('Cancel', obj.data.id, '确定取消这笔预订吗？取消后会立即释放这笔预订占用的库存。');
+                } else if (obj.event === 'complete') {
+                    changeStatus('Complete', obj.data.id, '确定这笔预订已经完成吗？完成后会正式扣减总库存，并释放冻结库存。');
+                }
+            });
+
+            function changeStatus(action, id, message) {
+                layer.confirm(message, { title: '确认操作' }, function (index) {
+                    coreHelper.Post('Api/SeafoodReservationAdmin/' + action, { id: id }, function (e) {
+                        layer.close(index);
+                        layer.msg(e.msg || (e.code === 0 ? '操作成功' : '操作失败'));
+                        if (e.code === 0) {
+                            table.reloadData('LAY-app-SeafoodReservation-tableBox');
+                            refreshStats();
+                        }
+                    });
+                });
+            }
+
+            function showDetail(id) {
+                coreHelper.Post('Api/SeafoodReservationAdmin/GetDetail', { id: id }, function (e) {
+                    if (e.code !== 0 || !e.data) {
+                        layer.msg(e.msg || '获取详情失败');
+                        return;
+                    }
+
+                    var data = e.data;
+                    var itemHtml = '';
+                    layui.each(data.items || [], function (index, item) {
+                        itemHtml += '<div class="seafood-detail-item">'
+                            + '<strong>' + escapeHtml(item.goodsName) + '</strong>'
+                            + '<span style="float:right;">' + escapeHtml(item.quantity) + escapeHtml(item.unit || '斤') + '</span>'
+                            + '<div style="color:#888;margin-top:4px;">单价 ¥' + Number(item.unitPrice || 0).toFixed(2)
+                            + '　小计 ¥' + Number(item.amount || 0).toFixed(2) + '</div>'
+                            + '</div>';
+                    });
+
+                    if (!itemHtml) {
+                        itemHtml = '<div class="seafood-detail-item">暂无明细</div>';
+                    }
+
+                    var html = '<div style="padding:20px 24px;">'
+                        + '<div class="seafood-detail-row"><span class="seafood-detail-label">预订号</span><span class="seafood-detail-value">' + escapeHtml(data.reservationNo) + '</span></div>'
+                        + '<div class="seafood-detail-row"><span class="seafood-detail-label">顾客</span><span class="seafood-detail-value">' + escapeHtml(data.customerName) + '</span></div>'
+                        + '<div class="seafood-detail-row"><span class="seafood-detail-label">联系方式</span><span class="seafood-detail-value">' + escapeHtml(data.contact || '未填写') + '</span></div>'
+                        + '<div class="seafood-detail-row"><span class="seafood-detail-label">取货方式</span><span class="seafood-detail-value">' + escapeHtml(deliveryText(data.deliveryType)) + '</span></div>'
+                        + '<div class="seafood-detail-row"><span class="seafood-detail-label">状态</span><span class="seafood-detail-value">' + escapeHtml(statusText(data.status)) + '</span></div>'
+                        + '<div class="seafood-detail-row"><span class="seafood-detail-label">预订金额</span><span class="seafood-detail-value" style="color:#f4511e;font-weight:bold;">¥' + Number(data.totalAmount || 0).toFixed(2) + '</span></div>'
+                        + '<div class="seafood-detail-row"><span class="seafood-detail-label">提交时间</span><span class="seafood-detail-value">' + escapeHtml(data.createdAt) + '</span></div>'
+                        + '<div class="seafood-detail-row"><span class="seafood-detail-label">备注</span><span class="seafood-detail-value">' + escapeHtml(data.note || '无') + '</span></div>'
+                        + '<div class="seafood-detail-row"><span class="seafood-detail-label">鱼货明细</span><div class="seafood-detail-items">' + itemHtml + '</div></div>'
+                        + '</div>';
+
+                    layer.open({
+                        type: 1,
+                        title: '鲜鱼预订详情',
+                        area: ['720px', '600px'],
+                        shadeClose: true,
+                        content: html
+                    });
+                });
+            }
+        });
+    };
+</script>
