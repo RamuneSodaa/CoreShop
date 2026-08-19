@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using CoreCms.Net.Configuration;
 using CoreCms.Net.IRepository.UnitOfWork;
 using CoreCms.Net.Model.Entities;
 using CoreCms.Net.Model.ViewModels.UI;
@@ -22,6 +23,40 @@ namespace CoreCms.Net.Web.WebApi.Controllers
         {
             _db = unitOfWork.GetDbClient();
             _db.CodeFirst.InitTables<SeafoodProductConfigRecord>();
+        }
+
+        private static string NormalizeImageUrl(
+            string image)
+        {
+            if (string.IsNullOrWhiteSpace(image))
+            {
+                return "/static/images/common/empty-banner.png";
+            }
+
+            var value = image.Trim();
+
+            var uploadIndex = value.IndexOf(
+                "/upload/",
+                StringComparison.OrdinalIgnoreCase);
+
+            if (uploadIndex < 0)
+            {
+                return value;
+            }
+
+            var uploadPath = value.Substring(uploadIndex);
+
+            var adminBaseUrl =
+                AppSettingsConstVars.AppConfigAppUrl
+                ?.Trim()
+                .TrimEnd('/');
+
+            if (string.IsNullOrWhiteSpace(adminBaseUrl))
+            {
+                return uploadPath;
+            }
+
+            return adminBaseUrl + uploadPath;
         }
 
         /// <summary>
@@ -91,9 +126,7 @@ namespace CoreCms.Net.Web.WebApi.Controllers
                             productId = p.id,
                             name = g.name ?? string.Empty,
                             brief = g.brief ?? string.Empty,
-                            image = string.IsNullOrWhiteSpace(g.image)
-                                ? "/static/images/common/empty-banner.png"
-                                : g.image,
+                            image = NormalizeImageUrl(g.image),
                             unit,
                             saleMode,
                             saleStep,
