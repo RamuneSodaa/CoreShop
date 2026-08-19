@@ -10,7 +10,7 @@ namespace CoreCms.Net.Web.WebApi.Controllers
 {
     /// <summary>
     /// 鲜鱼接龙专用商品目录接口。
-    /// 一次返回商品与默认 SKU，避免顾客端逐个调用通用商品详情接口。
+    /// 一次返回商品、默认 SKU 与鲜鱼专属库存/售卖规则。
     /// </summary>
     [Route("api/[controller]/[action]")]
     [ApiController]
@@ -21,11 +21,11 @@ namespace CoreCms.Net.Web.WebApi.Controllers
         public SeafoodCatalogController(IUnitOfWork unitOfWork)
         {
             _db = unitOfWork.GetDbClient();
+            _db.CodeFirst.InitTables<SeafoodProductConfigRecord>();
         }
 
         /// <summary>
-        /// 获取当前水产海鲜分类中已上架、未删除、存在默认 SKU 的商品。
-        /// 不要求商城登录。
+        /// 获取当前已启用的鲜鱼商品。不要求商城登录。
         /// </summary>
         [HttpPost]
         public WebApiCallBack List()
@@ -60,11 +60,31 @@ namespace CoreCms.Net.Web.WebApi.Controllers
                     .GroupBy(p => p.goodsId)
                     .ToDictionary(g => g.Key, g => g.OrderBy(p => p.id).First());
 
+                var productIds = products.Select(p => p.id).ToList();
+                var configs = productIds.Count == 0
+                    ? new System.Collections.Generic.List<SeafoodProductConfigRecord>()
+                    : _db.Queryable<SeafoodProductConfigRecord>()
+                        .Where(c => productIds.Contains(c.productId) && c.enabled == true)
+                        .ToList();
+
+                var configMap = configs.ToDictionary(c => c.productId, c => c);
+
                 var rows = goods
                     .Where(g => productMap.ContainsKey(g.id))
-                    .Select(g =>
+                    .Select(g => new { goods = g, product = productMap[g.id] })
+                    .Where(x => configMap.ContainsKey(x.product.id))
+                    .Select(x =>
                     {
-                        var p = productMap[g.id];
+                        var g = x.goods;
+                        var p = x.product;
+                        var c = configMap[p.id];
+                        var saleMode = SeafoodSaleModes.IsSupported(c.saleMode)
+                            ? c.saleMode
+                            : SeafoodSaleModes.WholeJin;
+                        var saleStep = SeafoodSaleModes.GetStep(saleMode);
+                        var unit = SeafoodSaleModes.GetUnit(saleMode);
+                        var available = Math.Max(0m, c.stockQty - c.freezeQty);
+
                         return new
                         {
                             id = g.id,
@@ -74,12 +94,14 @@ namespace CoreCms.Net.Web.WebApi.Controllers
                             image = string.IsNullOrWhiteSpace(g.image)
                                 ? "/static/images/common/empty-banner.png"
                                 : g.image,
-                            unit = string.IsNullOrWhiteSpace(g.unit) ? "斤" : g.unit,
+                            unit,
+                            saleMode,
+                            saleStep,
                             price = p.price,
                             mktprice = p.mktprice,
-                            stock = p.stock,
-                            freezeStock = p.freezeStock,
-                            availableStock = Math.Max(0, p.stock - p.freezeStock),
+                            stock = c.stockQty,
+                            freezeStock = c.freezeQty,
+                            availableStock = available,
                             sort = g.sort
                         };
                     })
