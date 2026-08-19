@@ -43,13 +43,13 @@
 
         <view v-else class="fish-list">
             <view class="fish-card" v-for="item in fishList" :key="item.id">
-                <view class="fish-image-wrap" @click="goGoodsDetail(item.id)">
+                <view class="fish-image-wrap">
                     <image class="fish-image" :src="item.image" mode="aspectFill"></image>
                     <view class="soldout-mask" v-if="item.availableStock <= 0">已售罄</view>
                 </view>
 
                 <view class="fish-main">
-                    <view class="fish-top" @click="goGoodsDetail(item.id)">
+                    <view class="fish-top">
                         <view class="fish-name">{{ item.name }}</view>
                         <view class="fish-brief" v-if="item.brief">{{ item.brief }}</view>
                     </view>
@@ -137,10 +137,7 @@
 </template>
 
 <script>
-    import { goods } from '@/common/mixins/mixinsHelper.js';
-
     export default {
-        mixins: [goods],
         data() {
             return {
                 navBackground: { backgroundColor: '#245b43' },
@@ -390,7 +387,7 @@
     .seafood-page {
         min-height: 100vh;
         background: #f4f6f3;
-        padding-bottom: 260rpx;
+        padding-bottom: 180rpx;
     }
 
     .hero-card {
@@ -484,7 +481,7 @@
         position: fixed;
         left: 0;
         right: 0;
-        bottom: 100rpx;
+        bottom: 0;
         z-index: 20;
         min-height: 118rpx;
         padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));

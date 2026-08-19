@@ -12,7 +12,7 @@
       "path": "pages/index/default/default",
       "style": {
         "navigationBarTextStyle": "white",
-        "navigationBarTitleText": "首页",
+        "navigationBarTitleText": "今日鲜鱼",
         // #ifdef H5
         "titleNView": false,
         // #endif
@@ -764,36 +764,5 @@
       "allowsBounceVertical": "NO",
       "transparentTitle": "always"
     }
-  },
-  "tabBar": {
-    "color": "#999",
-    "selectedColor": "#333",
-    "backgroundColor": "#fff",
-    "list": [
-      {
-        "pagePath": "pages/index/default/default",
-        "text": "首页",
-        "iconPath": "static/images/indexMenus/index01.png",
-        "selectedIconPath": "static/images/indexMenus/index01_1.png"
-      },
-      {
-        "pagePath": "pages/category/index/index",
-        "text": "分类",
-        "iconPath": "static/images/indexMenus/index02.png",
-        "selectedIconPath": "static/images/indexMenus/index02_1.png"
-      },
-      {
-        "pagePath": "pages/index/cart/cart",
-        "text": "购物车",
-        "iconPath": "static/images/indexMenus/index03.png",
-        "selectedIconPath": "static/images/indexMenus/index03_1.png"
-      },
-      {
-        "pagePath": "pages/index/member/member",
-        "text": "我的",
-        "iconPath": "static/images/indexMenus/index04.png",
-        "selectedIconPath": "static/images/indexMenus/index04_1.png"
-      }
-    ]
   }
 }
