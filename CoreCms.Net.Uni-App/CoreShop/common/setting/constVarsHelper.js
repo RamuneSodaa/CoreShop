@@ -3,14 +3,33 @@
  *  @version 1.0.0
  */
 
-// 本地卖鱼接龙 MVP：接口指向本机 CoreShop WebApi。
-// 正式部署时再替换为生产 API 域名。
-export const apiBaseUrl = 'http://127.0.0.1:2015';
-// 本地上传图片由 Admin 静态目录提供。
+// 开发H5直连本机WebApi。
+// 正式H5使用当前访问站点作为API根地址，
+// 由生产反向代理把 /api 请求转发给WebApi。
+let apiBaseUrl = 'http://127.0.0.1:2015';
+
+// #ifdef H5
+const h5Host = window.location.hostname;
+const isLocalH5 =
+    h5Host === 'localhost'
+    || h5Host === '127.0.0.1';
+
+if (!isLocalH5) {
+    apiBaseUrl = window.location.origin;
+}
+// #endif
+
+export { apiBaseUrl };
+
+// 本地上传图片由Admin静态目录提供。
+// 正式鲜鱼图片由Catalog按照Admin AppUrl返回。
 export const apiFilesUrl = 'http://127.0.0.1:1987';
 
 // #ifdef H5
-export const baseUrl = process.env.NODE_ENV === 'development' ? window.location.origin + '/' : apiBaseUrl
+export const baseUrl =
+    process.env.NODE_ENV === 'development'
+        ? window.location.origin + '/'
+        : apiBaseUrl
 // #endif
 
 export const paymentType = {
