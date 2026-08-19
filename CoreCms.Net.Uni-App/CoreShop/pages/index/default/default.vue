@@ -8,7 +8,7 @@
             <view>
                 <view class="hero-kicker">硇洲岛 · 今日到货</view>
                 <view class="hero-title">今日鲜鱼接龙</view>
-                <view class="hero-desc">库存实时更新，下单后自动为您留货</view>
+                <view class="hero-desc">库存实时更新，提交后立即为您留货</view>
             </view>
             <view class="hero-order" @click="goMyOrders">
                 <u-icon name="order" size="30" color="#ffffff"></u-icon>
@@ -18,7 +18,7 @@
 
         <view class="notice-bar">
             <u-icon name="info-circle" size="28" color="#8a6337"></u-icon>
-            <text>本小程序只用于选鱼、库存和预订，不在小程序内收款；货款按微信群原方式转账。</text>
+            <text>只用于选鱼、库存和预订，不在小程序内收款；货款继续按微信群原方式转账。</text>
         </view>
 
         <view class="section-head">
@@ -92,12 +92,47 @@
                 <view class="summary-price" v-if="selectedKinds > 0">预计 ¥{{ selectedAmount }}</view>
                 <view class="summary-hint" v-else>请选择要预订的鱼货</view>
             </view>
-            <button class="submit-btn" :class="{ disabled: selectedKinds === 0 || submitting }" :disabled="selectedKinds === 0 || submitting" @click="submitReservation">
-                {{ submitting ? '正在提交...' : '提交预订' }}
+            <button class="submit-btn" :class="{ disabled: selectedKinds === 0 }" :disabled="selectedKinds === 0" @click="submitReservation">
+                提交预订
             </button>
         </view>
 
-        <coreshop-login-modal></coreshop-login-modal>
+        <view class="dialog-mask" v-if="showReservationForm" @click.self="closeReservationForm">
+            <view class="reservation-dialog">
+                <view class="dialog-title">确认预订</view>
+                <view class="dialog-subtitle">无需手机号授权，也不会唤起微信支付</view>
+
+                <view class="selected-box">
+                    <view class="selected-row" v-for="item in selectedItems" :key="item.productId">
+                        <view class="selected-name">{{ item.name }}</view>
+                        <view class="selected-qty">{{ item.qty }}{{ item.unit }} · ¥{{ (Number(item.price) * item.qty).toFixed(2) }}</view>
+                    </view>
+                    <view class="selected-total">合计：{{ selectedQuantityText }}　预计 ¥{{ selectedAmount }}</view>
+                </view>
+
+                <view class="form-label"><text class="required">*</text> 称呼 / 微信名</view>
+                <input class="form-input" v-model="reservationForm.customerName" maxlength="40" placeholder="例如：杰仔、厨神五妹" />
+
+                <view class="form-label"><text class="required">*</text> 取货方式</view>
+                <view class="delivery-options">
+                    <view class="delivery-option" :class="{ active: reservationForm.deliveryType === 'pickup' }" @click="reservationForm.deliveryType = 'pickup'">到店取</view>
+                    <view class="delivery-option" :class="{ active: reservationForm.deliveryType === 'shipping' }" @click="reservationForm.deliveryType = 'shipping'">邮寄</view>
+                </view>
+
+                <view class="form-label">联系方式（选填）</view>
+                <input class="form-input" v-model="reservationForm.contact" maxlength="80" placeholder="手机号或其他方便联系的信息" />
+
+                <view class="form-label">备注（选填）</view>
+                <textarea class="form-textarea" v-model="reservationForm.note" maxlength="500" placeholder="例如：下午到店取、邮寄地址稍后微信发" />
+
+                <view class="dialog-actions">
+                    <button class="dialog-cancel" :disabled="submitting" @click="closeReservationForm">返回修改</button>
+                    <button class="dialog-confirm" :class="{ disabled: submitting }" :disabled="submitting" @click="confirmReservation">
+                        {{ submitting ? '正在留货...' : '确认预订' }}
+                    </button>
+                </view>
+            </view>
+        </view>
     </view>
 </template>
 
@@ -112,7 +147,14 @@
                 fishList: [],
                 loading: false,
                 submitting: false,
-                loadedOnce: false
+                loadedOnce: false,
+                showReservationForm: false,
+                reservationForm: {
+                    customerName: '',
+                    contact: '',
+                    deliveryType: 'pickup',
+                    note: ''
+                }
             };
         },
         computed: {
@@ -137,7 +179,7 @@
             this.loadFish();
         },
         onShow() {
-            if (this.loadedOnce && !this.loading) {
+            if (this.loadedOnce && !this.loading && !this.showReservationForm) {
                 this.loadFish(false, true);
             }
         },
@@ -224,40 +266,93 @@
             showMarketPrice(item) {
                 return Number(item.mktprice || 0) > 0 && Number(item.mktprice) !== Number(item.price);
             },
-            async submitReservation() {
+            submitReservation() {
+                if (this.selectedItems.length === 0) return;
+                this.showReservationForm = true;
+            },
+            closeReservationForm() {
+                if (this.submitting) return;
+                this.showReservationForm = false;
+            },
+            async confirmReservation() {
                 if (this.submitting || this.selectedItems.length === 0) return;
+
+                const customerName = (this.reservationForm.customerName || '').trim();
+                if (!customerName) {
+                    this.$u.toast('请填写称呼或微信名');
+                    return;
+                }
+
                 this.submitting = true;
+                const requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
                 try {
-                    const cartIds = [];
-                    for (const item of this.selectedItems) {
-                        const res = await this.$u.api.addCart({
+                    const res = await this.$u.post('/Api/SeafoodReservation/Create', {
+                        customerName,
+                        contact: (this.reservationForm.contact || '').trim(),
+                        deliveryType: this.reservationForm.deliveryType,
+                        note: (this.reservationForm.note || '').trim(),
+                        requestId,
+                        items: this.selectedItems.map(item => ({
                             productId: item.productId,
-                            nums: item.qty,
-                            type: 2,
-                            cartType: 1
-                        });
+                            quantity: item.qty
+                        }))
+                    }, {
+                        method: 'seafoodReservation.create',
+                        needToken: false
+                    });
 
-                        if (!res.status) {
-                            throw new Error(`${item.name}：${res.msg || '库存不足或无法预订'}`);
-                        }
-                        cartIds.push(res.data);
+                    if (!res || !res.status) {
+                        throw new Error((res && res.msg) || '预订失败，请重新确认库存');
                     }
 
-                    if (cartIds.length === 0) {
-                        throw new Error('没有可提交的鱼货');
-                    }
+                    const history = uni.getStorageSync('seafoodReservationHistory') || [];
+                    history.unshift({
+                        reservationNo: res.data.reservationNo,
+                        lookupToken: res.data.lookupToken,
+                        customerName: res.data.customerName,
+                        deliveryType: res.data.deliveryType,
+                        totalAmount: res.data.totalAmount,
+                        createdAt: Date.now()
+                    });
+                    uni.setStorageSync('seafoodReservationHistory', history.slice(0, 30));
 
-                    this.$u.route('/pages/placeOrder/index/index?cartIds=' + JSON.stringify(cartIds));
+                    this.showReservationForm = false;
+                    this.fishList.forEach(item => { item.qty = 0; });
+                    this.reservationForm.note = '';
+                    await this.loadFish(false, false);
+
+                    uni.showModal({
+                        title: '预订成功',
+                        content: `预订号：${res.data.reservationNo}\n预计金额：¥${Number(res.data.totalAmount || 0).toFixed(2)}\n已为您留货，请按微信群原方式转账。`,
+                        showCancel: false,
+                        confirmText: '知道了'
+                    });
                 } catch (error) {
-                    this.$u.toast(error && error.message ? error.message : '提交失败，请重新确认库存');
+                    this.$u.toast(error && error.message ? error.message : '提交失败，请稍后重试');
                     await this.loadFish(false, true);
                 } finally {
                     this.submitting = false;
                 }
             },
             goMyOrders() {
-                this.$u.route('/pages/member/order/index/index');
+                const history = uni.getStorageSync('seafoodReservationHistory') || [];
+                if (!history.length) {
+                    this.$u.toast('本机还没有预订记录');
+                    return;
+                }
+
+                const recent = history.slice(0, 5).map((item, index) => {
+                    const method = item.deliveryType === 'shipping' ? '邮寄' : '到店取';
+                    return `${index + 1}. ${item.reservationNo} · ${method} · ¥${Number(item.totalAmount || 0).toFixed(2)}`;
+                }).join('\n');
+
+                uni.showModal({
+                    title: '最近预订',
+                    content: recent,
+                    showCancel: false,
+                    confirmText: '知道了'
+                });
             }
         }
     };
@@ -267,7 +362,7 @@
     .seafood-page {
         min-height: 100vh;
         background: #f4f6f3;
-        padding-bottom: 150rpx;
+        padding-bottom: 260rpx;
     }
 
     .hero-card {
@@ -282,23 +377,9 @@
         box-shadow: 0 10rpx 28rpx rgba(36, 91, 67, 0.18);
     }
 
-    .hero-kicker {
-        font-size: 22rpx;
-        opacity: 0.82;
-        letter-spacing: 2rpx;
-    }
-
-    .hero-title {
-        margin-top: 8rpx;
-        font-size: 38rpx;
-        font-weight: 700;
-    }
-
-    .hero-desc {
-        margin-top: 12rpx;
-        font-size: 24rpx;
-        opacity: 0.86;
-    }
+    .hero-kicker { font-size: 22rpx; opacity: 0.82; letter-spacing: 2rpx; }
+    .hero-title { margin-top: 8rpx; font-size: 38rpx; font-weight: 700; }
+    .hero-desc { margin-top: 12rpx; font-size: 24rpx; opacity: 0.86; }
 
     .hero-order {
         flex-shrink: 0;
@@ -311,10 +392,7 @@
         align-items: center;
         font-size: 22rpx;
     }
-
-    .hero-order text {
-        margin-top: 6rpx;
-    }
+    .hero-order text { margin-top: 6rpx; }
 
     .notice-bar {
         margin: 0 24rpx 24rpx;
@@ -327,41 +405,13 @@
         font-size: 24rpx;
         line-height: 1.6;
     }
+    .notice-bar text { flex: 1; margin-left: 12rpx; }
 
-    .notice-bar text {
-        flex: 1;
-        margin-left: 12rpx;
-    }
-
-    .section-head {
-        padding: 6rpx 28rpx 18rpx;
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-    }
-
-    .section-title {
-        font-size: 34rpx;
-        font-weight: 700;
-        color: #26342d;
-    }
-
-    .section-subtitle {
-        margin-top: 6rpx;
-        font-size: 22rpx;
-        color: #8a948e;
-    }
-
-    .refresh-btn {
-        display: flex;
-        align-items: center;
-        font-size: 24rpx;
-        color: #5f6b63;
-    }
-
-    .refresh-btn text {
-        margin-left: 6rpx;
-    }
+    .section-head { padding: 6rpx 28rpx 18rpx; display: flex; justify-content: space-between; align-items: flex-end; }
+    .section-title { font-size: 34rpx; font-weight: 700; color: #26342d; }
+    .section-subtitle { margin-top: 6rpx; font-size: 22rpx; color: #8a948e; }
+    .refresh-btn { display: flex; align-items: center; font-size: 24rpx; color: #5f6b63; }
+    .refresh-btn text { margin-left: 6rpx; }
 
     .state-card {
         margin: 0 24rpx;
@@ -373,187 +423,40 @@
         align-items: center;
         justify-content: center;
     }
+    .state-text { margin-top: 18rpx; font-size: 25rpx; color: #8a948e; }
 
-    .state-text {
-        margin-top: 18rpx;
-        font-size: 25rpx;
-        color: #8a948e;
-    }
+    .fish-list { padding: 0 24rpx; }
+    .fish-card { margin-bottom: 18rpx; padding: 18rpx; border-radius: 22rpx; background: #ffffff; display: flex; box-shadow: 0 4rpx 18rpx rgba(35, 56, 45, 0.05); }
+    .fish-image-wrap { position: relative; width: 190rpx; height: 190rpx; flex-shrink: 0; overflow: hidden; border-radius: 18rpx; background: #edf0ed; }
+    .fish-image { width: 100%; height: 100%; }
+    .soldout-mask { position: absolute; left: 0; right: 0; bottom: 0; padding: 8rpx 0; text-align: center; background: rgba(31, 39, 35, 0.72); color: #ffffff; font-size: 22rpx; }
+    .fish-main { min-width: 0; flex: 1; margin-left: 20rpx; display: flex; flex-direction: column; justify-content: space-between; }
+    .fish-name { font-size: 31rpx; font-weight: 700; color: #26342d; line-height: 1.35; }
+    .fish-brief { margin-top: 7rpx; font-size: 22rpx; color: #919b95; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .price-line { margin-top: 10rpx; }
+    .member-price { display: flex; align-items: baseline; color: #c84b3b; }
+    .price-label { margin-right: 8rpx; padding: 3rpx 8rpx; border-radius: 7rpx; background: #fbe8e4; font-size: 20rpx; color: #ba4b3c; }
+    .price-symbol { font-size: 24rpx; font-weight: 700; }
+    .price-number { font-size: 37rpx; font-weight: 800; }
+    .price-unit { margin-left: 3rpx; font-size: 22rpx; }
+    .normal-price { margin-top: 3rpx; font-size: 21rpx; color: #a2aaa5; }
+    .stock-line { margin-top: 10rpx; display: flex; justify-content: space-between; align-items: center; }
+    .stock-text { font-size: 23rpx; color: #68736c; }
+    .stock-text.danger { color: #c34d42; }
+    .stock-number { margin: 0 3rpx; font-size: 27rpx; font-weight: 700; }
 
-    .fish-list {
-        padding: 0 24rpx;
-    }
-
-    .fish-card {
-        margin-bottom: 18rpx;
-        padding: 18rpx;
-        border-radius: 22rpx;
-        background: #ffffff;
-        display: flex;
-        box-shadow: 0 4rpx 18rpx rgba(35, 56, 45, 0.05);
-    }
-
-    .fish-image-wrap {
-        position: relative;
-        width: 190rpx;
-        height: 190rpx;
-        flex-shrink: 0;
-        overflow: hidden;
-        border-radius: 18rpx;
-        background: #edf0ed;
-    }
-
-    .fish-image {
-        width: 100%;
-        height: 100%;
-    }
-
-    .soldout-mask {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        padding: 8rpx 0;
-        text-align: center;
-        background: rgba(31, 39, 35, 0.72);
-        color: #ffffff;
-        font-size: 22rpx;
-    }
-
-    .fish-main {
-        min-width: 0;
-        flex: 1;
-        margin-left: 20rpx;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-    }
-
-    .fish-name {
-        font-size: 31rpx;
-        font-weight: 700;
-        color: #26342d;
-        line-height: 1.35;
-    }
-
-    .fish-brief {
-        margin-top: 7rpx;
-        font-size: 22rpx;
-        color: #919b95;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .price-line {
-        margin-top: 10rpx;
-    }
-
-    .member-price {
-        display: flex;
-        align-items: baseline;
-        color: #c84b3b;
-    }
-
-    .price-label {
-        margin-right: 8rpx;
-        padding: 3rpx 8rpx;
-        border-radius: 7rpx;
-        background: #fbe8e4;
-        font-size: 20rpx;
-        color: #ba4b3c;
-    }
-
-    .price-symbol {
-        font-size: 24rpx;
-        font-weight: 700;
-    }
-
-    .price-number {
-        font-size: 37rpx;
-        font-weight: 800;
-    }
-
-    .price-unit {
-        margin-left: 3rpx;
-        font-size: 22rpx;
-    }
-
-    .normal-price {
-        margin-top: 3rpx;
-        font-size: 21rpx;
-        color: #a2aaa5;
-    }
-
-    .stock-line {
-        margin-top: 10rpx;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .stock-text {
-        font-size: 23rpx;
-        color: #68736c;
-    }
-
-    .stock-text.danger {
-        color: #c34d42;
-    }
-
-    .stock-number {
-        margin: 0 3rpx;
-        font-size: 27rpx;
-        font-weight: 700;
-    }
-
-    .stepper {
-        height: 58rpx;
-        display: flex;
-        align-items: center;
-        overflow: hidden;
-        border: 1rpx solid #dfe5e1;
-        border-radius: 14rpx;
-        background: #f8faf8;
-    }
-
-    .stepper.disabled {
-        opacity: 0.45;
-    }
-
-    .step-btn {
-        width: 56rpx;
-        height: 58rpx;
-        line-height: 56rpx;
-        text-align: center;
-        font-size: 32rpx;
-        color: #4f5d55;
-    }
-
-    .step-btn.plus {
-        color: #245b43;
-        font-weight: 700;
-    }
-
-    .step-value {
-        min-width: 82rpx;
-        padding: 0 8rpx;
-        text-align: center;
-        font-size: 24rpx;
-        color: #26342d;
-        border-left: 1rpx solid #e2e7e4;
-        border-right: 1rpx solid #e2e7e4;
-    }
-
-    .bottom-space {
-        height: 26rpx;
-    }
+    .stepper { height: 58rpx; display: flex; align-items: center; overflow: hidden; border: 1rpx solid #dfe5e1; border-radius: 14rpx; background: #f8faf8; }
+    .stepper.disabled { opacity: 0.45; }
+    .step-btn { width: 56rpx; height: 58rpx; line-height: 56rpx; text-align: center; font-size: 32rpx; color: #4f5d55; }
+    .step-btn.plus { color: #245b43; font-weight: 700; }
+    .step-value { min-width: 82rpx; padding: 0 8rpx; text-align: center; font-size: 24rpx; color: #26342d; border-left: 1rpx solid #e2e7e4; border-right: 1rpx solid #e2e7e4; }
+    .bottom-space { height: 26rpx; }
 
     .reservation-footer {
         position: fixed;
         left: 0;
         right: 0;
-        bottom: 0;
+        bottom: 100rpx;
         z-index: 20;
         min-height: 118rpx;
         padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
@@ -562,40 +465,12 @@
         display: flex;
         align-items: center;
     }
-
-    .summary {
-        min-width: 0;
-        flex: 1;
-        margin-right: 18rpx;
-    }
-
-    .summary-main {
-        font-size: 25rpx;
-        color: #4f5d55;
-    }
-
-    .summary-strong {
-        font-weight: 700;
-        color: #245b43;
-    }
-
-    .summary-dot {
-        margin: 0 8rpx;
-        color: #adb5b0;
-    }
-
-    .summary-price {
-        margin-top: 5rpx;
-        font-size: 23rpx;
-        font-weight: 600;
-        color: #c84b3b;
-    }
-
-    .summary-hint {
-        margin-top: 5rpx;
-        font-size: 22rpx;
-        color: #9aa39e;
-    }
+    .summary { min-width: 0; flex: 1; margin-right: 18rpx; }
+    .summary-main { font-size: 25rpx; color: #4f5d55; }
+    .summary-strong { font-weight: 700; color: #245b43; }
+    .summary-dot { margin: 0 8rpx; color: #adb5b0; }
+    .summary-price { margin-top: 5rpx; font-size: 23rpx; font-weight: 600; color: #c84b3b; }
+    .summary-hint { margin-top: 5rpx; font-size: 22rpx; color: #9aa39e; }
 
     .submit-btn {
         width: 230rpx;
@@ -610,12 +485,56 @@
         font-size: 29rpx;
         font-weight: 700;
     }
+    .submit-btn::after { border: 0; }
+    .submit-btn.disabled { background: #b9c3bd; }
 
-    .submit-btn::after {
-        border: 0;
+    .dialog-mask {
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        padding: 40rpx 24rpx;
+        background: rgba(20, 29, 24, 0.56);
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
-    .submit-btn.disabled {
-        background: #b9c3bd;
+    .reservation-dialog {
+        width: 100%;
+        max-width: 680rpx;
+        max-height: 88vh;
+        overflow-y: auto;
+        padding: 34rpx 30rpx 30rpx;
+        border-radius: 26rpx;
+        background: #ffffff;
+        box-shadow: 0 24rpx 70rpx rgba(0, 0, 0, 0.2);
     }
+    .dialog-title { font-size: 36rpx; font-weight: 800; color: #26342d; }
+    .dialog-subtitle { margin-top: 8rpx; font-size: 22rpx; color: #89948e; }
+
+    .selected-box { margin-top: 24rpx; padding: 18rpx 20rpx; border-radius: 16rpx; background: #f4f7f5; }
+    .selected-row { display: flex; justify-content: space-between; align-items: center; padding: 7rpx 0; }
+    .selected-name { max-width: 52%; font-size: 24rpx; font-weight: 600; color: #35433b; }
+    .selected-qty { font-size: 23rpx; color: #68736c; }
+    .selected-total { margin-top: 10rpx; padding-top: 14rpx; border-top: 1rpx solid #dfe6e2; font-size: 25rpx; font-weight: 700; color: #c84b3b; }
+
+    .form-label { margin-top: 22rpx; margin-bottom: 10rpx; font-size: 24rpx; font-weight: 600; color: #3f4d45; }
+    .required { margin-right: 4rpx; color: #c84b3b; }
+    .form-input, .form-textarea { box-sizing: border-box; width: 100%; border: 1rpx solid #dfe5e1; border-radius: 14rpx; background: #fafbfa; font-size: 25rpx; color: #26342d; }
+    .form-input { height: 76rpx; padding: 0 20rpx; }
+    .form-textarea { min-height: 128rpx; padding: 18rpx 20rpx; line-height: 1.5; }
+
+    .delivery-options { display: flex; gap: 16rpx; }
+    .delivery-option { flex: 1; height: 72rpx; line-height: 72rpx; text-align: center; border: 1rpx solid #d9e1dc; border-radius: 14rpx; background: #f8faf8; font-size: 25rpx; color: #56635c; }
+    .delivery-option.active { border-color: #245b43; background: #eaf3ee; color: #245b43; font-weight: 700; }
+
+    .dialog-actions { margin-top: 30rpx; display: flex; gap: 18rpx; }
+    .dialog-cancel, .dialog-confirm { flex: 1; height: 78rpx; line-height: 78rpx; margin: 0; padding: 0; border: 0; border-radius: 39rpx; font-size: 27rpx; font-weight: 700; }
+    .dialog-cancel { background: #edf1ee; color: #56635c; }
+    .dialog-confirm { background: #245b43; color: #ffffff; }
+    .dialog-confirm.disabled { background: #9eb0a6; }
+    .dialog-cancel::after, .dialog-confirm::after { border: 0; }
 </style>
