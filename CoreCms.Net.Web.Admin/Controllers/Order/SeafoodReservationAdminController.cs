@@ -109,7 +109,7 @@ namespace CoreCms.Net.Web.Admin.Controllers
 
                 var totalQuantity = items.Sum(i => i.quantity);
                 var goodsSummary = string.Join("、", items.Select(i =>
-                    $"{i.goodsName} {i.quantity}{(string.IsNullOrWhiteSpace(i.unit) ? "斤" : i.unit)}"));
+                    $"{i.goodsName} {FormatQuantity(i.quantity)}{(string.IsNullOrWhiteSpace(i.unit) ? "斤" : i.unit)}"));
 
                 return new
                 {
@@ -195,7 +195,7 @@ namespace CoreCms.Net.Web.Admin.Controllers
         }
 
         /// <summary>
-        /// 确认预订：待处理 -> 已确认。库存保持冻结。
+        /// 确认预订：待处理 -> 已确认。鲜鱼专属库存保持冻结。
         /// </summary>
         [HttpPost]
         public AdminUiCallBack Confirm()
@@ -218,7 +218,7 @@ namespace CoreCms.Net.Web.Admin.Controllers
         }
 
         /// <summary>
-        /// 取消预订：释放此前冻结的库存。
+        /// 取消预订：释放鲜鱼专属冻结库存。
         /// </summary>
         [HttpPost]
         public AdminUiCallBack Cancel()
@@ -258,10 +258,11 @@ namespace CoreCms.Net.Web.Admin.Controllers
                 foreach (var item in items)
                 {
                     var stockAffected = _db.Ado.ExecuteCommand(
-                        "UPDATE CoreCmsProducts " +
-                        "SET freezeStock = freezeStock - @qty " +
-                        "WHERE id = @productId AND freezeStock >= @qty",
+                        "UPDATE SeafoodProductConfig " +
+                        "SET freezeQty = freezeQty - @qty, updatedAt = @now " +
+                        "WHERE productId = @productId AND freezeQty >= @qty",
                         new SugarParameter("@qty", item.quantity),
+                        new SugarParameter("@now", DateTime.Now),
                         new SugarParameter("@productId", item.productId));
 
                     if (stockAffected != 1)
@@ -284,7 +285,7 @@ namespace CoreCms.Net.Web.Admin.Controllers
         }
 
         /// <summary>
-        /// 完成预订：扣减总库存并释放冻结库存。
+        /// 完成预订：扣减鲜鱼专属总库存并释放冻结库存。
         /// </summary>
         [HttpPost]
         public AdminUiCallBack Complete()
@@ -324,10 +325,11 @@ namespace CoreCms.Net.Web.Admin.Controllers
                 foreach (var item in items)
                 {
                     var stockAffected = _db.Ado.ExecuteCommand(
-                        "UPDATE CoreCmsProducts " +
-                        "SET stock = stock - @qty, freezeStock = freezeStock - @qty " +
-                        "WHERE id = @productId AND stock >= @qty AND freezeStock >= @qty",
+                        "UPDATE SeafoodProductConfig " +
+                        "SET stockQty = stockQty - @qty, freezeQty = freezeQty - @qty, updatedAt = @now " +
+                        "WHERE productId = @productId AND stockQty >= @qty AND freezeQty >= @qty",
                         new SugarParameter("@qty", item.quantity),
+                        new SugarParameter("@now", DateTime.Now),
                         new SugarParameter("@productId", item.productId));
 
                     if (stockAffected != 1)
@@ -338,7 +340,7 @@ namespace CoreCms.Net.Web.Admin.Controllers
                 }
 
                 _unitOfWork.CommitTran();
-                return Success("预订已完成，总库存和冻结库存已同步结算");
+                return Success("预订已完成，鲜鱼库存已同步结算");
             }
             catch (Exception ex)
             {
@@ -358,6 +360,11 @@ namespace CoreCms.Net.Web.Admin.Controllers
         private static int ParsePositiveInt(string value, int fallback)
         {
             return int.TryParse(value, out var parsed) && parsed > 0 ? parsed : fallback;
+        }
+
+        private static string FormatQuantity(decimal value)
+        {
+            return value.ToString("0.####");
         }
 
         private static AdminUiCallBack Success(string message)
@@ -380,9 +387,31 @@ namespace CoreCms.Net.Web.Admin.Controllers
 
         private void EnsureTables()
         {
+            _db.CodeFirst.InitTables<SeafoodProductConfigAdminRecord>();
             _db.CodeFirst.InitTables<SeafoodReservationAdminRecord>();
             _db.CodeFirst.InitTables<SeafoodReservationItemAdminRecord>();
         }
+    }
+
+    [SugarTable("SeafoodProductConfig")]
+    internal class SeafoodProductConfigAdminRecord
+    {
+        [SugarColumn(IsPrimaryKey = true)]
+        public int productId { get; set; }
+
+        public bool enabled { get; set; }
+
+        [SugarColumn(Length = 20)]
+        public string saleMode { get; set; }
+
+        [SugarColumn(ColumnDataType = "decimal(18,4)")]
+        public decimal stockQty { get; set; }
+
+        [SugarColumn(ColumnDataType = "decimal(18,4)")]
+        public decimal freezeQty { get; set; }
+
+        public DateTime createdAt { get; set; }
+        public DateTime updatedAt { get; set; }
     }
 
     [SugarTable("SeafoodReservation")]
@@ -434,7 +463,9 @@ namespace CoreCms.Net.Web.Admin.Controllers
         [SugarColumn(Length = 30)]
         public string unit { get; set; }
 
-        public int quantity { get; set; }
+        [SugarColumn(ColumnDataType = "decimal(18,4)")]
+        public decimal quantity { get; set; }
+
         public decimal unitPrice { get; set; }
         public decimal amount { get; set; }
 
